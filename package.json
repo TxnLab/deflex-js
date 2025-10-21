@@ -1,0 +1,79 @@
+{
+  "name": "@txnlab/deflex",
+  "version": "0.0.1",
+  "description": "TypeScript/JavaScript SDK for Deflex Order Router - smart order routing and DEX aggregation on Algorand",
+  "keywords": [
+    "algorand",
+    "deflex",
+    "dex",
+    "swap",
+    "order-router",
+    "defi",
+    "amm",
+    "liquidity",
+    "aggregator",
+    "trading",
+    "blockchain",
+    "typescript",
+    "sdk"
+  ],
+  "homepage": "https://github.com/TxnLab/deflex-js",
+  "bugs": {
+    "url": "https://github.com/TxnLab/deflex-js/issues"
+  },
+  "author": "Doug Richar <doug@txnlab.dev> (https://txnlab.dev)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TxnLab/deflex-js.git"
+  },
+  "license": "MIT",
+  "files": [
+    "dist"
+  ],
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@10.18.3",
+  "scripts": {
+    "build": "tsdown && publint --strict",
+    "ci": "pnpm run build && pnpm run format && pnpm run test",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "lint": "eslint",
+    "format": "prettier --check .",
+    "format:fix": "prettier --write .",
+    "typecheck": "tsc --noEmit",
+    "release": "np"
+  },
+  "devDependencies": {
+    "@eslint/js": "9.38.0",
+    "eslint": "9.38.0",
+    "eslint-config-prettier": "10.1.8",
+    "eslint-plugin-import-x": "4.16.1",
+    "np": "10.2.0",
+    "prettier": "3.6.2",
+    "publint": "0.3.15",
+    "tsdown": "0.15.9",
+    "typescript": "5.9.3",
+    "typescript-eslint": "8.46.2",
+    "vitest": "3.2.4"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "unrs-resolver"
+    ]
+  }
+}
