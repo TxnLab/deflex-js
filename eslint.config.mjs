@@ -10,6 +10,9 @@ export default defineConfig(
   eslint.configs.recommended,
   tseslint.configs.recommended,
   {
+    ignores: ['**/dist/**', '**/node_modules/**'],
+  },
+  {
     files: ['**/src/**/*.{js,ts,mjs,cjs}'],
     plugins: {
       // @ts-expect-error https://github.com/typescript-eslint/typescript-eslint/issues/11543
