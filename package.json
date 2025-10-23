@@ -59,6 +59,7 @@
   },
   "devDependencies": {
     "@eslint/js": "9.38.0",
+    "@types/node": "24.9.1",
     "eslint": "9.38.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import-x": "4.16.1",
@@ -75,5 +76,9 @@
       "esbuild",
       "unrs-resolver"
     ]
+  },
+  "dependencies": {
+    "@algorandfoundation/algokit-utils": "9.1.2",
+    "algosdk": "3.5.2"
   }
 }
