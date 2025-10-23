@@ -1,10 +1,14 @@
+import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
-import type { QuoteResponse } from '@/types/api'
+import type { QuoteResponse, SwapTxnsResponse } from '@/types/api'
 import type {
   DeflexConfig,
   DeflexConfigParams,
+  FetchSwapParams,
   GetQuoteParams,
+  SignSwapParams,
 } from '@/types/client'
+import type { ProcessedTransaction } from '@/types/swap'
 import {
   DEFAULT_ALGOD_PORT,
   DEFAULT_ALGOD_TOKEN,
@@ -177,5 +181,177 @@ export class DeflexClient {
     }
 
     return request<QuoteResponse>(url.toString())
+  }
+
+  /**
+   * Fetch swap transactions from the Deflex API
+   *
+   * @param params - Parameters for the swap transaction request
+   * @param params.quote - The quote response from getQuote()
+   * @param params.signerAddress - The address of the signer
+   * @param params.slippage - The slippage tolerance
+   * @returns A SwapTxnsResponse object with transaction data
+   *
+   * @example
+   * ```typescript
+   * const quote = await deflex.getQuote({ ... })
+   * const swap = await deflex.fetchSwapTransactions({
+   *   quote,
+   *   signerAddress: 'ABC...',
+   *   slippage: 1,
+   * })
+   * ```
+   */
+  async fetchSwapTransactions(
+    params: FetchSwapParams,
+  ): Promise<SwapTxnsResponse> {
+    const { quote, signerAddress, slippage } = params
+
+    // Validate signer address
+    this.validateAddress(signerAddress)
+
+    const url = new URL(`${this.baseUrl}/fetchExecuteSwapTxns`)
+
+    const body: {
+      apiKey: string
+      address: string
+      txnPayloadJSON: typeof quote.txnPayload
+      slippage: number
+    } = {
+      apiKey: this.config.apiKey,
+      address: signerAddress,
+      txnPayloadJSON: quote.txnPayload,
+      slippage,
+    }
+
+    return request<SwapTxnsResponse>(url.toString(), {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    })
+  }
+
+  /**
+   * Sign swap transactions ready for submission to the network
+   *
+   * @param params - Parameters for the swap signing request
+   * @param params.quote - The quote response from getQuote()
+   * @param params.signerAddress - The address of the signer
+   * @param params.slippage - The slippage tolerance
+   * @param params.signer - Transaction signer function
+   * @returns Array of signed transaction blobs ready to submit
+   *
+   * @example
+   * ```typescript
+   * const quote = await deflex.getQuote({ ... })
+   * const signedTxns = await deflex.signSwap({
+   *   quote,
+   *   signerAddress: 'ABC...',
+   *   slippage: 1,
+   *   signer: transactionSigner,
+   * })
+   *
+   * // Submit to network
+   * await algorand.client.algod
+   *   .sendRawTransaction(signedTxns)
+   *   .do()
+   * ```
+   */
+  async signSwap(params: SignSwapParams): Promise<Uint8Array[]> {
+    const { quote, signerAddress, slippage, signer } = params
+
+    // Validate signer address
+    this.validateAddress(signerAddress)
+
+    // Create AlgorandClient for opt-in checks
+    const algorand = AlgorandClient.fromConfig({
+      algodConfig: {
+        server: this.config.algodUri,
+        port: this.config.algodPort,
+        token: this.config.algodToken,
+      },
+    })
+
+    // Fetch account information
+    const accountInfo = await algorand.account.getInformation(signerAddress)
+
+    // Check for required opt-ins
+    const { appOptInTxns, assetOptInTxn } = await analyzeOptInRequirements(
+      algorand,
+      signerAddress,
+      accountInfo,
+      quote.requiredAppOptIns,
+      quote.toASAID,
+    )
+
+    // Fetch swap transactions from API
+    const swapResponse = await this.fetchSwapTransactions({
+      quote,
+      signerAddress,
+      slippage,
+    })
+
+    // Process swap transactions
+    const processedSwapTxns = processSwapTransactions(swapResponse.txns)
+
+    // Combine all transactions: opt-ins first, then swap transactions
+    const allProcessedTxns: ProcessedTransaction[] = [
+      ...appOptInTxns.map((txn) => ({ txn })),
+      ...(assetOptInTxn ? [{ txn: assetOptInTxn }] : []),
+      ...processedSwapTxns,
+    ]
+
+    // Assign new group ID to all transactions
+    assignGroupId(allProcessedTxns)
+
+    // Separate user transactions and pre-signed transactions
+    const userTransactions: algosdk.Transaction[] = []
+    const userTransactionIndexes: number[] = []
+    const preSignedTxns: Uint8Array[] = []
+
+    for (let i = 0; i < allProcessedTxns.length; i++) {
+      const item = allProcessedTxns[i]
+      if (!item) continue
+
+      if (!item.deflexSignature) {
+        userTransactions.push(item.txn)
+        userTransactionIndexes.push(userTransactions.length - 1)
+      } else {
+        // Re-sign this transaction with the provided signature
+        const signedTxnBlob = reSignTransaction(item.txn, item.deflexSignature)
+        preSignedTxns.push(signedTxnBlob)
+      }
+    }
+
+    // Sign user transactions
+    let userSignedTxns: Uint8Array[] = []
+    if (userTransactions.length > 0) {
+      userSignedTxns = await signer(userTransactions, userTransactionIndexes)
+    }
+
+    // Combine user-signed and pre-signed transactions in correct order
+    const result: Uint8Array[] = []
+    let userSignedIndex = 0
+    let preSignedIndex = 0
+
+    for (const item of allProcessedTxns) {
+      if (!item.deflexSignature) {
+        const signedTxn = userSignedTxns[userSignedIndex]
+        if (signedTxn) {
+          result.push(signedTxn)
+        }
+        userSignedIndex++
+      } else {
+        const preSignedTxn = preSignedTxns[preSignedIndex]
+        if (preSignedTxn) {
+          result.push(preSignedTxn)
+        }
+        preSignedIndex++
+      }
+    }
+
+    return result
   }
 }

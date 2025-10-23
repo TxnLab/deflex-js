@@ -75,3 +75,28 @@ export interface QuoteResponse {
   readonly type: string
   readonly timing?: unknown
 }
+
+/**
+ * Transaction signature from swap API
+ */
+export interface SwapTxnSignature {
+  readonly type: 'logic_signature' | 'secret_key'
+  readonly value: unknown
+}
+
+/**
+ * Transaction from swap API
+ */
+export interface SwapTxn {
+  readonly data: string
+  readonly group: string
+  readonly logicSigBlob: unknown | false
+  readonly signature: SwapTxnSignature | false
+}
+
+/**
+ * Swap transactions response from the Deflex API
+ */
+export interface SwapTxnsResponse {
+  readonly txns: SwapTxn[]
+}
