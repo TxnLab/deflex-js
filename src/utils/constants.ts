@@ -60,3 +60,8 @@ export const DEFAULT_MAX_DEPTH = 4
  * Default atomic-only setting
  */
 export const DEFAULT_ATOMIC_ONLY = true
+
+/**
+ * Default auto opt-in setting
+ */
+export const DEFAULT_AUTO_OPT_IN = true

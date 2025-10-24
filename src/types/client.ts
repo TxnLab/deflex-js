@@ -23,6 +23,11 @@ export type QuoteType = 'fixed-input' | 'fixed-output'
  */
 export interface GetQuoteParams {
   /**
+   * Address of the account that will perform the swap
+   */
+  readonly address: string
+
+  /**
    * Input asset ID
    */
   readonly fromAssetId: bigint | number
@@ -61,12 +66,22 @@ export interface GetQuoteParams {
    * Only allow atomic (single block) swaps (default: true)
    */
   readonly atomicOnly?: boolean
+
+  /**
+   * Whether to include asset opt-in transaction (overrides config.autoOptIn if set)
+   */
+  readonly optIn?: boolean
 }
 
 /**
  * Configuration for DeflexClient
  */
 export interface DeflexConfigParams {
+  /**
+   * API key for Deflex API
+   */
+  readonly apiKey: string
+
   /**
    * Algod node URI (default: https://mainnet-api.4160.nodely.dev/)
    */
@@ -93,9 +108,9 @@ export interface DeflexConfigParams {
   readonly feeBps?: number
 
   /**
-   * API key for Deflex API
+   * Automatically detect and add required opt-in transactions (default: true)
    */
-  readonly apiKey: string
+  readonly autoOptIn?: boolean
 }
 
 /**

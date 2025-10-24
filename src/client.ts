@@ -15,6 +15,7 @@ import {
   DEFAULT_ALGOD_URI,
   DEFAULT_API_BASE_URL,
   DEFAULT_ATOMIC_ONLY,
+  DEFAULT_AUTO_OPT_IN,
   DEFAULT_FEE_BPS,
   DEFAULT_MAX_DEPTH,
   DEFAULT_MAX_GROUP_SIZE,
@@ -39,6 +40,7 @@ import {
  * @param config.algodPort - The port of the Algod node (default: 443)
  * @param config.referrerAddress - The address of the referrer, receives 25% of swap fees (optional)
  * @param config.feeBps - The output fee in basis points (default: 15 = 0.15%, max: 300 = 3.00%)
+ * @param config.autoOptIn - Automatically detect and add required opt-in transactions (default: false)
  * @returns A new DeflexClient instance
  *
  * @example
@@ -57,14 +59,17 @@ import {
  *   algodPort: 443,
  *   referrerAddress: 'your-referrer-address',
  *   feeBps: 15,
+ *   autoOptIn: false,
  * })
  * ```
  */
 export class DeflexClient {
   private readonly baseUrl: string = DEFAULT_API_BASE_URL
   private readonly config: DeflexConfig
+  private readonly algorand: AlgorandClient
 
   constructor(config: DeflexConfigParams) {
+    // Validate and set config
     this.config = {
       apiKey: this.validateApiKey(config.apiKey),
       algodUri: config.algodUri ?? DEFAULT_ALGOD_URI,
@@ -74,7 +79,17 @@ export class DeflexClient {
         ? this.validateAddress(config.referrerAddress)
         : undefined,
       feeBps: this.validateFeeBps(config.feeBps ?? DEFAULT_FEE_BPS),
+      autoOptIn: config.autoOptIn ?? DEFAULT_AUTO_OPT_IN,
     }
+
+    // Create AlgorandClient
+    this.algorand = AlgorandClient.fromConfig({
+      algodConfig: {
+        server: this.config.algodUri,
+        port: this.config.algodPort,
+        token: this.config.algodToken,
+      },
+    })
   }
 
   /**
@@ -131,15 +146,20 @@ export class DeflexClient {
    * @param params.maxGroupSize - The maximum group size (default: 16)
    * @param params.maxDepth - The maximum depth (default: 4)
    * @param params.atomicOnly - Whether to only use atomic swaps (default: true)
+   * @param params.address - The address of the account that will perform the swap (optional, required if `config.autoOptIn` is true)
+   * @param params.optIn - Whether to include asset opt-in transaction
+   *   - If true: API reduces maxGroupSize by 1 and includes opt-in (always included, even if not needed)
+   *   - If false: No opt-in transaction included
+   *   - If undefined: Falls back to `config.autoOptIn` behavior with account check (if `params.address` is provided)
    * @returns A QuoteResponse object with routing information
    *
    * @example
    * ```typescript
    * const quote = await client.getQuote({
+   *   address: 'ABC...',
    *   fromAssetId: 0,           // ALGO
    *   toAssetId: 31566704,      // USDC
    *   amount: 1_000_000,        // 1 ALGO
-   *   type: 'fixed-input',
    * })
    * ```
    */
@@ -153,12 +173,28 @@ export class DeflexClient {
       maxGroupSize = DEFAULT_MAX_GROUP_SIZE,
       maxDepth = DEFAULT_MAX_DEPTH,
       atomicOnly = DEFAULT_ATOMIC_ONLY,
+      optIn,
+      address,
     } = params
 
     // Always include deprecated protocols in disabled list
     const allDisabledProtocols = [
       ...new Set([...DEPRECATED_PROTOCOLS, ...disabledProtocols]),
     ]
+
+    let includeOptIn = optIn
+    if (includeOptIn === undefined && this.config.autoOptIn) {
+      if (address) {
+        includeOptIn = await this.needsAssetOptIn(
+          this.validateAddress(address),
+          toAssetId,
+        )
+      } else {
+        console.warn(
+          'autoOptIn is enabled but no address provided to getQuote(). Asset opt-in check skipped.',
+        )
+      }
+    }
 
     const url = new URL(`${this.baseUrl}/fetchQuote`)
 
@@ -175,12 +211,42 @@ export class DeflexClient {
     url.searchParams.append('maxGroupSize', maxGroupSize.toString())
     url.searchParams.append('maxDepth', maxDepth.toString())
     url.searchParams.append('atomicOnly', String(atomicOnly))
+    url.searchParams.append('optIn', String(includeOptIn))
 
     if (this.config.referrerAddress) {
       url.searchParams.append('referrerAddress', this.config.referrerAddress)
     }
 
     return request<QuoteResponse>(url.toString())
+  }
+
+  /**
+   * Check if asset opt-in is required
+   *
+   * @param address - The address to check
+   * @param assetId - The asset ID to check
+   * @returns True if asset opt-in is required, false otherwise
+   *
+   * @example
+   * ```typescript
+   * const needsAssetOptIn = await deflex.needsAssetOptIn('ABC...', 31566704)
+   * console.log(needsAssetOptIn) // true or false
+   * ```
+   */
+  async needsAssetOptIn(
+    address: string,
+    assetId: number | bigint,
+  ): Promise<boolean> {
+    // Fetch account information
+    const accountInfo = await this.algorand.account.getInformation(address)
+
+    // Check if asset opt-in is required
+    return (
+      BigInt(assetId) !== 0n &&
+      accountInfo?.assets?.find(
+        (asset) => asset.assetId === BigInt(assetId),
+      ) === undefined
+    )
   }
 
   /**
