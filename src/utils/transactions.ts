@@ -2,26 +2,20 @@ import algosdk from 'algosdk'
 import type { SwapTxn, SwapTxnSignature } from '@/types/api'
 import type { ProcessedTransaction } from '@/types/swap'
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import type { AccountInformation } from '@algorandfoundation/algokit-utils/types/account'
 
 /**
- * Opt-in requirements result
+ * Process required app opt-ins
  */
-export interface OptInRequirements {
-  readonly appOptInTxns: algosdk.Transaction[]
-  readonly assetOptInTxn: algosdk.Transaction | null
-}
+export async function processRequiredAppOptIns(params: {
+  algorand: AlgorandClient
+  signerAddress: string
+  requiredAppOptIns: readonly number[]
+}): Promise<ProcessedTransaction[]> {
+  const { algorand, signerAddress, requiredAppOptIns } = params
 
-/**
- * Analyze and create opt-in transactions if needed
- */
-export async function analyzeOptInRequirements(
-  algorand: AlgorandClient,
-  signerAddress: string,
-  accountInfo: AccountInformation,
-  requiredAppOptIns: readonly number[],
-  outputAssetId: number,
-): Promise<OptInRequirements> {
+  // Fetch account information
+  const accountInfo = await algorand.account.getInformation(signerAddress)
+
   // Check app opt-ins
   const userApps =
     accountInfo?.appsLocalState?.map((app) => Number(app.id)) || []
@@ -29,15 +23,8 @@ export async function analyzeOptInRequirements(
     (appId) => !userApps.includes(appId),
   )
 
-  // Check asset opt-in (skip if ALGO = 0)
-  const needsAssetOptIn =
-    outputAssetId !== 0 &&
-    accountInfo?.assets?.find(
-      (asset) => asset.assetId === BigInt(outputAssetId),
-    ) === undefined
-
   // Create opt-in transactions if needed
-  const appOptInTxns: algosdk.Transaction[] = []
+  const txns: algosdk.Transaction[] = []
   if (appsToOptIn.length > 0) {
     const suggestedParams = await algorand.client.algod
       .getTransactionParams()
@@ -46,22 +33,14 @@ export async function analyzeOptInRequirements(
     for (const appId of appsToOptIn) {
       const optInTxn = algosdk.makeApplicationOptInTxnFromObject({
         sender: signerAddress,
-        suggestedParams,
         appIndex: appId,
+        suggestedParams,
       })
-      appOptInTxns.push(optInTxn)
+      txns.push(optInTxn)
     }
   }
 
-  let assetOptInTxn: algosdk.Transaction | null = null
-  if (needsAssetOptIn) {
-    assetOptInTxn = await algorand.createTransaction.assetOptIn({
-      sender: signerAddress,
-      assetId: BigInt(outputAssetId),
-    })
-  }
-
-  return { appOptInTxns, assetOptInTxn }
+  return txns.map((txn) => ({ txn }))
 }
 
 /**

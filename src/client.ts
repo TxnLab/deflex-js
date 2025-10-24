@@ -8,7 +8,6 @@ import type {
   GetQuoteParams,
   SignSwapParams,
 } from '@/types/client'
-import type { ProcessedTransaction } from '@/types/swap'
 import {
   DEFAULT_ALGOD_PORT,
   DEFAULT_ALGOD_TOKEN,
@@ -25,7 +24,7 @@ import {
 import { request } from '@/utils/request'
 import {
   assignGroupId,
-  analyzeOptInRequirements,
+  processRequiredAppOptIns,
   processSwapTransactions,
   reSignTransaction,
 } from '@/utils/transactions'
@@ -331,27 +330,6 @@ export class DeflexClient {
     // Validate signer address
     this.validateAddress(signerAddress)
 
-    // Create AlgorandClient for opt-in checks
-    const algorand = AlgorandClient.fromConfig({
-      algodConfig: {
-        server: this.config.algodUri,
-        port: this.config.algodPort,
-        token: this.config.algodToken,
-      },
-    })
-
-    // Fetch account information
-    const accountInfo = await algorand.account.getInformation(signerAddress)
-
-    // Check for required opt-ins
-    const { appOptInTxns, assetOptInTxn } = await analyzeOptInRequirements(
-      algorand,
-      signerAddress,
-      accountInfo,
-      quote.requiredAppOptIns,
-      quote.toASAID,
-    )
-
     // Fetch swap transactions from API
     const swapResponse = await this.fetchSwapTransactions({
       quote,
@@ -359,15 +337,16 @@ export class DeflexClient {
       slippage,
     })
 
+    // Process required app opt-ins
+    const processedAppOptInTxns = await processRequiredAppOptIns({
+      algorand: this.algorand,
+      signerAddress: signerAddress,
+      requiredAppOptIns: quote.requiredAppOptIns,
+    })
+
     // Process swap transactions
     const processedSwapTxns = processSwapTransactions(swapResponse.txns)
-
-    // Combine all transactions: opt-ins first, then swap transactions
-    const allProcessedTxns: ProcessedTransaction[] = [
-      ...appOptInTxns.map((txn) => ({ txn })),
-      ...(assetOptInTxn ? [{ txn: assetOptInTxn }] : []),
-      ...processedSwapTxns,
-    ]
+    const allProcessedTxns = [...processedAppOptInTxns, ...processedSwapTxns]
 
     // Assign new group ID to all transactions
     assignGroupId(allProcessedTxns)
