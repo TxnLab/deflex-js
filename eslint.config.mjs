@@ -13,7 +13,7 @@ export default defineConfig(
     ignores: ['**/dist/**', '**/node_modules/**'],
   },
   {
-    files: ['**/src/**/*.{js,ts,mjs,cjs}'],
+    files: ['**/src/**/*.ts', '**/tests/**/*.ts'],
     plugins: {
       // @ts-expect-error https://github.com/typescript-eslint/typescript-eslint/issues/11543
       'import-x': importX,
@@ -37,6 +37,16 @@ export default defineConfig(
             caseInsensitive: true,
           },
         },
+      ],
+    },
+  },
+  {
+    files: ['**/tests/**/*.ts'],
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_' },
       ],
     },
   },
