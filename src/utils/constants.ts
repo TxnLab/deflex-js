@@ -65,3 +65,8 @@ export const DEFAULT_ATOMIC_ONLY = true
  * Default auto opt-in setting
  */
 export const DEFAULT_AUTO_OPT_IN = false
+
+/**
+ * Default number of rounds to wait for confirmation
+ */
+export const DEFAULT_CONFIRMATION_ROUNDS = 4

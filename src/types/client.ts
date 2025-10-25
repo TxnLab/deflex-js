@@ -1,17 +1,5 @@
 import type { QuoteResponse } from './api'
 import type { Protocol } from '@/utils/constants'
-import type algosdk from 'algosdk'
-
-/**
- * Transaction signer function
- * @param txnGroup - The atomic group containing transactions to be signed
- * @param indexesToSign - An array of indexes in the atomic transaction group that should be signed
- * @returns A promise which resolves an array of encoded signed transactions
- */
-export type TransactionSigner = (
-  txnGroup: algosdk.Transaction[],
-  indexesToSign?: number[],
-) => Promise<Uint8Array[]>
 
 /**
  * Swap quote type
@@ -22,11 +10,6 @@ export type QuoteType = 'fixed-input' | 'fixed-output'
  * Parameters for requesting a swap quote
  */
 export interface GetQuoteParams {
-  /**
-   * Address of the account that will perform the swap
-   */
-  readonly address: string
-
   /**
    * Input asset ID
    */
@@ -71,6 +54,11 @@ export interface GetQuoteParams {
    * Whether to include asset opt-in transaction (overrides config.autoOptIn if set)
    */
   readonly optIn?: boolean
+
+  /**
+   * Address of the account that will perform the swap
+   */
+  readonly address?: string
 }
 
 /**
@@ -141,14 +129,4 @@ export interface FetchSwapParams {
    * Slippage tolerance as a percentage (e.g., 5 for 5%)
    */
   readonly slippage: number
-}
-
-/**
- * Parameters for signing swap transactions
- */
-export interface SignSwapParams extends FetchSwapParams {
-  /**
-   * Transaction signer function (e.g., from wallet SDK)
-   */
-  readonly signer: TransactionSigner
 }

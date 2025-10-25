@@ -6,8 +6,8 @@ import type {
   DeflexConfigParams,
   FetchSwapParams,
   GetQuoteParams,
-  SignSwapParams,
 } from '@/types/client'
+import { SwapComposer } from '@/composer'
 import {
   DEFAULT_ALGOD_PORT,
   DEFAULT_ALGOD_TOKEN,
@@ -22,12 +22,6 @@ import {
   MAX_FEE_BPS,
 } from '@/utils/constants'
 import { request } from '@/utils/request'
-import {
-  assignGroupId,
-  processRequiredAppOptIns,
-  processSwapTransactions,
-  reSignTransaction,
-} from '@/utils/transactions'
 
 /**
  * Client for interacting with the Deflex order router API
@@ -225,12 +219,6 @@ export class DeflexClient {
    * @param address - The address to check
    * @param assetId - The asset ID to check
    * @returns True if asset opt-in is required, false otherwise
-   *
-   * @example
-   * ```typescript
-   * const needsAssetOptIn = await deflex.needsAssetOptIn('ABC...', 31566704)
-   * console.log(needsAssetOptIn) // true or false
-   * ```
    */
   async needsAssetOptIn(
     address: string,
@@ -256,16 +244,6 @@ export class DeflexClient {
    * @param params.signerAddress - The address of the signer
    * @param params.slippage - The slippage tolerance
    * @returns A SwapTxnsResponse object with transaction data
-   *
-   * @example
-   * ```typescript
-   * const quote = await deflex.getQuote({ ... })
-   * const swap = await deflex.fetchSwapTransactions({
-   *   quote,
-   *   signerAddress: 'ABC...',
-   *   slippage: 1,
-   * })
-   * ```
    */
   async fetchSwapTransactions(
     params: FetchSwapParams,
@@ -299,104 +277,72 @@ export class DeflexClient {
   }
 
   /**
-   * Sign swap transactions ready for submission to the network
+   * Create a SwapComposer instance
    *
-   * @param params - Parameters for the swap signing request
-   * @param params.quote - The quote response from getQuote()
-   * @param params.signerAddress - The address of the signer
-   * @param params.slippage - The slippage tolerance
-   * @param params.signer - Transaction signer function
-   * @returns Array of signed transaction blobs ready to submit
+   * This factory method creates a composer that allows you to add custom transactions
+   * before and after the swap transactions, with automatic handling of pre-signed transactions
+   * and opt-ins.
+   *
+   * @param config.quote - The quote response from getQuote()
+   * @param config.signerAddress - The address of the signer
+   * @param config.slippage - The slippage tolerance
+   * @returns A SwapComposer instance ready for building transaction groups
    *
    * @example
    * ```typescript
+   * // Basic swap
    * const quote = await deflex.getQuote({ ... })
-   * const signedTxns = await deflex.signSwap({
+   * await deflex.newSwap({ quote, slippage, signerAddress })
+   *   .execute(signer)
+   * ```
+   *
+   * @example
+   * ```typescript
+   * // Advanced swap with custom transactions
+   * const quote = await deflex.getQuote({ ... })
+   * const swap = await deflex.newSwap({
    *   quote,
-   *   signerAddress: 'ABC...',
-   *   slippage: 1,
-   *   signer: transactionSigner,
+   *   slippage,
+   *   signerAddress,
    * })
    *
-   * // Submit to network
-   * await algorand.client.algod
-   *   .sendRawTransaction(signedTxns)
-   *   .do()
+   * console.log(swap.getStatus()) // BUILDING
+   *
+   * const signedTxns = await swap
+   *   .addTransaction(beforeTxn)
+   *   .addSwapTransactions() // Adds swap transactions to the group
+   *   .addTransaction(afterTxn)
+   *   .sign(signer) // algosdk.TransactionSigner or (txns) => Promise<Uint8Array[]>
+   *
+   * console.log(swap.getStatus()) // SIGNED
+   *
+   * const result = await swap.execute(signer, waitRounds)
+   * console.log(result.confirmedRound, result.txIds)
+   *
+   * console.log(swap.getStatus()) // COMMITTED
    * ```
    */
-  async signSwap(params: SignSwapParams): Promise<Uint8Array[]> {
-    const { quote, signerAddress, slippage, signer } = params
+  async newSwap(config: {
+    quote: QuoteResponse
+    signerAddress: string
+    slippage: number
+  }): Promise<SwapComposer> {
+    const { quote, signerAddress, slippage } = config
 
-    // Validate signer address
-    this.validateAddress(signerAddress)
-
-    // Fetch swap transactions from API
     const swapResponse = await this.fetchSwapTransactions({
       quote,
       signerAddress,
       slippage,
     })
 
-    // Process required app opt-ins
-    const processedAppOptInTxns = await processRequiredAppOptIns({
+    // Create the composer
+    const composer = new SwapComposer({
+      quote,
+      swapTxns: swapResponse.txns,
       algorand: this.algorand,
-      signerAddress: signerAddress,
-      requiredAppOptIns: quote.requiredAppOptIns,
+      signerAddress,
     })
 
-    // Process swap transactions
-    const processedSwapTxns = processSwapTransactions(swapResponse.txns)
-    const allProcessedTxns = [...processedAppOptInTxns, ...processedSwapTxns]
-
-    // Assign new group ID to all transactions
-    assignGroupId(allProcessedTxns)
-
-    // Separate user transactions and pre-signed transactions
-    const userTransactions: algosdk.Transaction[] = []
-    const userTransactionIndexes: number[] = []
-    const preSignedTxns: Uint8Array[] = []
-
-    for (let i = 0; i < allProcessedTxns.length; i++) {
-      const item = allProcessedTxns[i]
-      if (!item) continue
-
-      if (!item.deflexSignature) {
-        userTransactions.push(item.txn)
-        userTransactionIndexes.push(userTransactions.length - 1)
-      } else {
-        // Re-sign this transaction with the provided signature
-        const signedTxnBlob = reSignTransaction(item.txn, item.deflexSignature)
-        preSignedTxns.push(signedTxnBlob)
-      }
-    }
-
-    // Sign user transactions
-    let userSignedTxns: Uint8Array[] = []
-    if (userTransactions.length > 0) {
-      userSignedTxns = await signer(userTransactions, userTransactionIndexes)
-    }
-
-    // Combine user-signed and pre-signed transactions in correct order
-    const result: Uint8Array[] = []
-    let userSignedIndex = 0
-    let preSignedIndex = 0
-
-    for (const item of allProcessedTxns) {
-      if (!item.deflexSignature) {
-        const signedTxn = userSignedTxns[userSignedIndex]
-        if (signedTxn) {
-          result.push(signedTxn)
-        }
-        userSignedIndex++
-      } else {
-        const preSignedTxn = preSignedTxns[preSignedIndex]
-        if (preSignedTxn) {
-          result.push(preSignedTxn)
-        }
-        preSignedIndex++
-      }
-    }
-
-    return result
+    return composer
   }
 }
