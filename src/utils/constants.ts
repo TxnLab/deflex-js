@@ -64,4 +64,4 @@ export const DEFAULT_ATOMIC_ONLY = true
 /**
  * Default auto opt-in setting
  */
-export const DEFAULT_AUTO_OPT_IN = true
+export const DEFAULT_AUTO_OPT_IN = false
