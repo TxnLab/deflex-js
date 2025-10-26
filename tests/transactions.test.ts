@@ -1,13 +1,13 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { SwapTxn } from '@/types'
 import {
   processRequiredAppOptIns,
   processSwapTransactions,
   assignGroupId,
   reSignTransaction,
-} from '@/utils'
+} from '../src/utils'
+import type { SwapTxn } from '../src/types'
 
 describe('transactions utilities', () => {
   const validAddress =

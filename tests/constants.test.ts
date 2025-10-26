@@ -13,7 +13,7 @@ import {
   DEFAULT_ATOMIC_ONLY,
   DEFAULT_AUTO_OPT_IN,
   DEFAULT_CONFIRMATION_ROUNDS,
-} from '@/constants'
+} from '../src/constants'
 
 describe('constants', () => {
   describe('Protocol enum', () => {

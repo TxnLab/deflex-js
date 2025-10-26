@@ -1,8 +1,8 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { QuoteResponse, SwapTxn } from '@/types'
-import { SwapComposer, SwapComposerStatus } from '@/composer'
+import { SwapComposer, SwapComposerStatus } from '../src/composer'
+import type { QuoteResponse, SwapTxn } from '../src/types'
 
 // Mock waitForConfirmation
 vi.mock('algosdk', async () => {

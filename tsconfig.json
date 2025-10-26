@@ -21,13 +21,7 @@
     "lib": ["es2022"],
     "noEmit": true,
     "declaration": true,
-    "declarationMap": true,
-
-    /* Path Aliases: */
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["src/*"]
-    }
+    "declarationMap": true
   },
   "exclude": ["node_modules", "dist"]
 }
