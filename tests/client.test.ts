@@ -23,7 +23,7 @@ vi.mock('@algorandfoundation/algokit-utils', () => ({
 }))
 
 // Mock the request utility
-vi.mock('../src/request', () => ({
+vi.mock('../src/utils', () => ({
   request: vi.fn(),
   HTTPError: class HTTPError extends Error {
     constructor(
@@ -116,7 +116,7 @@ describe('DeflexClient', () => {
 
     beforeEach(async () => {
       client = new DeflexClient(validConfig)
-      const requestModule = vi.mocked(await import('../src/request'), {
+      const requestModule = vi.mocked(await import('../src/utils'), {
         partial: true,
       })
       mockRequest = requestModule.request as ReturnType<typeof vi.fn>
@@ -334,7 +334,7 @@ describe('DeflexClient', () => {
 
     beforeEach(async () => {
       client = new DeflexClient(validConfig)
-      const requestModule = vi.mocked(await import('../src/request'), {
+      const requestModule = vi.mocked(await import('../src/utils'), {
         partial: true,
       })
       mockRequest = requestModule.request as ReturnType<typeof vi.fn>
@@ -408,7 +408,7 @@ describe('DeflexClient', () => {
 
     beforeEach(async () => {
       client = new DeflexClient(validConfig)
-      const requestModule = vi.mocked(await import('../src/request'), {
+      const requestModule = vi.mocked(await import('../src/utils'), {
         partial: true,
       })
       mockRequest = requestModule.request as ReturnType<typeof vi.fn>

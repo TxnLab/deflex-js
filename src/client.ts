@@ -14,7 +14,7 @@ import {
   DEPRECATED_PROTOCOLS,
   MAX_FEE_BPS,
 } from './constants'
-import { request } from './request'
+import { request } from './utils'
 import type {
   QuoteResponse,
   SwapTxnsResponse,

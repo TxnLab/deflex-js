@@ -650,6 +650,346 @@ describe('SwapComposer', () => {
     })
   })
 
+  describe('transaction processing (via public API)', () => {
+    describe('app opt-in processing', () => {
+      it('should not create opt-in transactions when none required', async () => {
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(
+            algosdk.encodeUnsignedTransaction(createMockTransaction()),
+          ).toString('base64'),
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const quote: Partial<QuoteResponse> = {
+          ...createMockQuote(),
+          requiredAppOptIns: [], // No opt-ins required
+        }
+
+        const composer = new SwapComposer({
+          quote: quote as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        // Should only have the swap transaction, no opt-ins
+        expect(composer.count()).toBe(1)
+      })
+
+      it('should not create opt-in transactions when already opted in', async () => {
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(
+            algosdk.encodeUnsignedTransaction(createMockTransaction()),
+          ).toString('base64'),
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const quote: Partial<QuoteResponse> = {
+          ...createMockQuote(),
+          requiredAppOptIns: [123456],
+        }
+
+        // Mock that user is already opted into app 123456
+        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
+          appsLocalState: [{ id: 123456 }],
+          assets: [],
+        })
+
+        const composer = new SwapComposer({
+          quote: quote as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        // Should only have the swap transaction, no opt-ins
+        expect(composer.count()).toBe(1)
+      })
+
+      it('should create opt-in transactions for missing apps', async () => {
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(
+            algosdk.encodeUnsignedTransaction(createMockTransaction()),
+          ).toString('base64'),
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const quote: Partial<QuoteResponse> = {
+          ...createMockQuote(),
+          requiredAppOptIns: [123456],
+        }
+
+        // Mock that user is not opted in
+        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
+          appsLocalState: [],
+          assets: [],
+        })
+
+        const composer = new SwapComposer({
+          quote: quote as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        // Should have opt-in + swap transaction
+        expect(composer.count()).toBe(2)
+      })
+
+      it('should only create opt-ins for apps not already opted in', async () => {
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(
+            algosdk.encodeUnsignedTransaction(createMockTransaction()),
+          ).toString('base64'),
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const quote: Partial<QuoteResponse> = {
+          ...createMockQuote(),
+          requiredAppOptIns: [123456, 789012, 345678],
+        }
+
+        // Mock that user is opted into one of the three apps
+        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
+          appsLocalState: [{ id: 789012 }],
+          assets: [],
+        })
+
+        const composer = new SwapComposer({
+          quote: quote as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        // Should have 2 opt-ins + 1 swap = 3 total
+        expect(composer.count()).toBe(3)
+      })
+
+      it('should handle empty appsLocalState', async () => {
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(
+            algosdk.encodeUnsignedTransaction(createMockTransaction()),
+          ).toString('base64'),
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const quote: Partial<QuoteResponse> = {
+          ...createMockQuote(),
+          requiredAppOptIns: [123456],
+        }
+
+        // Mock that appsLocalState is undefined
+        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
+          appsLocalState: undefined,
+          assets: [],
+        })
+
+        const composer = new SwapComposer({
+          quote: quote as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        // Should have opt-in + swap transaction
+        expect(composer.count()).toBe(2)
+      })
+    })
+
+    describe('swap transaction decoding', () => {
+      it('should process a single user transaction', async () => {
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(
+            algosdk.encodeUnsignedTransaction(createMockTransaction()),
+          ).toString('base64'),
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const composer = new SwapComposer({
+          quote: createMockQuote() as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        expect(composer.count()).toBe(1)
+      })
+
+      it('should process multiple transactions', async () => {
+        const mockSwapTxns: SwapTxn[] = [
+          {
+            data: Buffer.from(
+              algosdk.encodeUnsignedTransaction(createMockTransaction()),
+            ).toString('base64'),
+            signature: false,
+            group: '',
+            logicSigBlob: false,
+          },
+          {
+            data: Buffer.from(
+              algosdk.encodeUnsignedTransaction(createMockTransaction()),
+            ).toString('base64'),
+            signature: false,
+            group: '',
+            logicSigBlob: false,
+          },
+        ]
+
+        const composer = new SwapComposer({
+          quote: createMockQuote() as QuoteResponse,
+          swapTxns: mockSwapTxns,
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        expect(composer.count()).toBe(2)
+      })
+
+      it('should throw error for invalid transaction data', async () => {
+        const mockSwapTxn: SwapTxn = {
+          data: 'invalid-base64-data',
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const composer = new SwapComposer({
+          quote: createMockQuote() as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await expect(composer.addSwapTransactions()).rejects.toThrow(
+          'Failed to process swap transaction',
+        )
+      })
+
+      it('should handle empty transaction array', async () => {
+        const composer = new SwapComposer({
+          quote: createMockQuote() as QuoteResponse,
+          swapTxns: [],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        expect(composer.count()).toBe(0)
+      })
+    })
+
+    describe('transaction re-signing', () => {
+      it('should re-sign transaction with logic signature', async () => {
+        const logicSig = new algosdk.LogicSigAccount(
+          new Uint8Array([1, 32, 1, 1, 34]),
+        )
+
+        const appAddress = algosdk.getApplicationAddress(BigInt(123456))
+        const txn = createMockTransaction(appAddress.toString())
+        const signedTxn = algosdk.signLogicSigTransactionObject(txn, logicSig)
+
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString(
+            'base64',
+          ),
+          signature: {
+            type: 'logic_signature',
+            value: Object.fromEntries(
+              signedTxn.blob.entries(),
+            ) as unknown as Record<string, number>,
+          },
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const composer = new SwapComposer({
+          quote: createMockQuote() as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        const signedTxns = await composer.sign(
+          async (txns: algosdk.Transaction[]) => {
+            // Should not receive pre-signed transactions
+            expect(txns.length).toBe(0)
+            return []
+          },
+        )
+
+        expect(signedTxns.length).toBeGreaterThan(0)
+      })
+
+      it('should handle transaction re-signing with secret key', async () => {
+        const account = algosdk.generateAccount()
+        const txn = createMockTransaction(account.addr.toString())
+
+        const mockSwapTxn: SwapTxn = {
+          data: Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString(
+            'base64',
+          ),
+          signature: {
+            type: 'secret_key',
+            value: Object.fromEntries(
+              account.sk.entries(),
+            ) as unknown as Record<string, number>,
+          },
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const composer = new SwapComposer({
+          quote: createMockQuote() as QuoteResponse,
+          swapTxns: [mockSwapTxn],
+          algorand: mockAlgorand,
+          signerAddress: validAddress,
+        })
+
+        await composer.addSwapTransactions()
+
+        const signedTxns = await composer.sign(
+          async (txns: algosdk.Transaction[]) => {
+            // Should not receive pre-signed transactions
+            expect(txns.length).toBe(0)
+            return []
+          },
+        )
+
+        expect(signedTxns.length).toBeGreaterThan(0)
+      })
+    })
+  })
+
   describe('integration scenarios', () => {
     it('should handle a complete swap workflow', async () => {
       const mockSwapTxn: SwapTxn = {

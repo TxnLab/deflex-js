@@ -1,16 +1,16 @@
-import {
+import algosdk, {
   assignGroupID,
   isValidAddress,
   Transaction,
   waitForConfirmation,
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
-import {
-  processRequiredAppOptIns,
-  processSwapTransactions,
-  reSignTransaction,
-} from './utils'
-import type { QuoteResponse, SwapTxn, ProcessedTransaction } from './types'
+import type {
+  QuoteResponse,
+  SwapTxn,
+  ProcessedTransaction,
+  SwapTxnSignature,
+} from './types'
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
 
 /**
@@ -97,16 +97,6 @@ export class SwapComposer {
   }
 
   /**
-   * Validates an Algorand address
-   */
-  private validateAddress(address: string): string {
-    if (!isValidAddress(address)) {
-      throw new Error(`Invalid Algorand address: ${address}`)
-    }
-    return address
-  }
-
-  /**
    * Add a transaction to the atomic group
    *
    * Transactions are added in the order methods are called. For example:
@@ -174,43 +164,6 @@ export class SwapComposer {
   }
 
   /**
-   * Process swap transactions
-   *
-   * @returns A promise that resolves to an array of processed transactions
-   */
-  private async processSwapTransactions(): Promise<ProcessedTransaction[]> {
-    const processedAppOptInTxns = await processRequiredAppOptIns({
-      algorand: this.algorand,
-      signerAddress: this.signerAddress,
-      requiredAppOptIns: this.quote.requiredAppOptIns,
-    })
-    const processedSwapTxns = processSwapTransactions(this.swapTxns)
-    return [...processedAppOptInTxns, ...processedSwapTxns]
-  }
-
-  /**
-   * Finalize the transaction group and returned the finalized transactions.
-   *
-   * The composer's status will be at least BUILT after executing this method.
-   *
-   * @returns The finalized transactions
-   * @throws Error if the composer is not in the BUILDING status
-   * @throws Error if the group has no transactions
-   */
-  private buildGroup(): ProcessedTransaction[] {
-    if (this.status === SwapComposerStatus.BUILDING) {
-      if (this.transactions.length === 0) {
-        throw new Error('Cannot build a group with 0 transactions')
-      }
-      if (this.transactions.length > 1) {
-        assignGroupID(this.transactions.map((processedTxn) => processedTxn.txn))
-      }
-      this.status = SwapComposerStatus.BUILT
-    }
-    return this.transactions
-  }
-
-  /**
    * Sign the transaction group
    *
    * @param signer - Transaction signer function. Can be either:
@@ -255,7 +208,10 @@ export class SwapComposer {
         userTransactionIndexes.push(userTransactions.length - 1)
       } else {
         // Pre-signed transaction - re-sign with Deflex signature
-        const signedTxnBlob = reSignTransaction(item.txn, item.deflexSignature)
+        const signedTxnBlob = this.reSignTransaction(
+          item.txn,
+          item.deflexSignature,
+        )
         preSignedTxns.push(signedTxnBlob)
       }
     }
@@ -358,6 +314,164 @@ export class SwapComposer {
     return {
       confirmedRound,
       txIds,
+    }
+  }
+
+  /**
+   * Validates an Algorand address
+   */
+  private validateAddress(address: string): string {
+    if (!isValidAddress(address)) {
+      throw new Error(`Invalid Algorand address: ${address}`)
+    }
+    return address
+  }
+
+  /**
+   * Process swap transactions
+   * Processes app opt-ins and decodes swap transactions from API response
+   *
+   * @returns A promise that resolves to an array of processed transactions
+   */
+  private async processSwapTransactions(): Promise<ProcessedTransaction[]> {
+    // Process required app opt-ins
+    const processedAppOptInTxns = await this.processRequiredAppOptIns()
+
+    // Decode and process swap transactions from API
+    const processedSwapTxns: ProcessedTransaction[] = []
+    for (let i = 0; i < this.swapTxns.length; i++) {
+      const swapTxn = this.swapTxns[i]
+      if (!swapTxn) continue
+
+      try {
+        // Decode transaction from base64 data
+        const txnBytes = Buffer.from(swapTxn.data, 'base64')
+        const transaction = algosdk.decodeUnsignedTransaction(txnBytes)
+
+        // Remove group ID (will be reassigned later)
+        delete transaction.group
+
+        if (swapTxn.signature !== false) {
+          // Pre-signed transaction - needs re-signing with provided signature
+          processedSwapTxns.push({
+            txn: transaction,
+            deflexSignature: swapTxn.signature,
+          })
+        } else {
+          // User transaction - needs user signature
+          processedSwapTxns.push({
+            txn: transaction,
+          })
+        }
+      } catch (error) {
+        throw new Error(
+          `Failed to process swap transaction at index ${i}: ${error instanceof Error ? error.message : String(error)}`,
+        )
+      }
+    }
+
+    return [...processedAppOptInTxns, ...processedSwapTxns]
+  }
+
+  /**
+   * Process required app opt-ins
+   */
+  private async processRequiredAppOptIns(): Promise<ProcessedTransaction[]> {
+    // Fetch account information
+    const accountInfo = await this.algorand.account.getInformation(
+      this.signerAddress,
+    )
+
+    // Check app opt-ins
+    const userApps =
+      accountInfo?.appsLocalState?.map((app) => Number(app.id)) || []
+    const appsToOptIn = this.quote.requiredAppOptIns.filter(
+      (appId) => !userApps.includes(appId),
+    )
+
+    // Create opt-in transactions if needed
+    const txns: algosdk.Transaction[] = []
+    if (appsToOptIn.length > 0) {
+      const suggestedParams = await this.algorand.client.algod
+        .getTransactionParams()
+        .do()
+
+      for (const appId of appsToOptIn) {
+        const optInTxn = algosdk.makeApplicationOptInTxnFromObject({
+          sender: this.signerAddress,
+          appIndex: appId,
+          suggestedParams,
+        })
+        txns.push(optInTxn)
+      }
+    }
+
+    return txns.map((txn) => ({ txn }))
+  }
+
+  /**
+   * Finalize the transaction group and returned the finalized transactions.
+   *
+   * The composer's status will be at least BUILT after executing this method.
+   *
+   * @returns The finalized transactions
+   * @throws Error if the composer is not in the BUILDING status
+   * @throws Error if the group has no transactions
+   */
+  private buildGroup(): ProcessedTransaction[] {
+    if (this.status === SwapComposerStatus.BUILDING) {
+      if (this.transactions.length === 0) {
+        throw new Error('Cannot build a group with 0 transactions')
+      }
+      if (this.transactions.length > 1) {
+        assignGroupID(this.transactions.map((processedTxn) => processedTxn.txn))
+      }
+      this.status = SwapComposerStatus.BUILT
+    }
+    return this.transactions
+  }
+
+  /**
+   * Re-sign a transaction using the provided Deflex signature
+   */
+  private reSignTransaction(
+    transaction: algosdk.Transaction,
+    signature: SwapTxnSignature,
+  ): Uint8Array {
+    try {
+      if (signature.type === 'logic_signature') {
+        // Decode the signature value to extract the logic signature
+        const valueArray = signature.value as Record<string, number>
+        const valueBytes = new Uint8Array(Object.values(valueArray))
+        const decoded = algosdk.msgpackRawDecode(valueBytes) as {
+          lsig?: { l: Uint8Array; arg?: Uint8Array[] }
+        }
+
+        if (!decoded.lsig) {
+          throw new Error('Logic signature structure missing lsig field')
+        }
+
+        const lsig = decoded.lsig
+        const logicSigAccount = new algosdk.LogicSigAccount(lsig.l, lsig.arg)
+
+        const signedTxn = algosdk.signLogicSigTransactionObject(
+          transaction,
+          logicSigAccount,
+        )
+        return signedTxn.blob
+      } else if (signature.type === 'secret_key') {
+        // Convert signature.value (Record<string, number>) to Uint8Array
+        const valueArray = signature.value as Record<string, number>
+        const secretKey = new Uint8Array(Object.values(valueArray))
+        const signedTxn = algosdk.signTransaction(transaction, secretKey)
+        return signedTxn.blob
+      } else {
+        throw new Error(`Unsupported signature type: ${signature.type}`)
+      }
+    } catch (error) {
+      throw new Error(
+        `Failed to re-sign transaction: ${error instanceof Error ? error.message : String(error)}`,
+      )
     }
   }
 }
