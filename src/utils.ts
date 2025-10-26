@@ -1,6 +1,5 @@
 import algosdk from 'algosdk'
-import type { SwapTxn, SwapTxnSignature } from '@/types/api'
-import type { ProcessedTransaction } from '@/types/swap'
+import type { SwapTxn, SwapTxnSignature, ProcessedTransaction } from './types'
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
 
 /**

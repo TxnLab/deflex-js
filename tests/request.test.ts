@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
-import { request, HTTPError } from '@/utils/request'
+import { request, HTTPError } from '@/request'
 
 describe('HTTPError', () => {
   it('should create an HTTPError with status, statusText, and data', () => {

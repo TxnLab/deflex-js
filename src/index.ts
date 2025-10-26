@@ -10,7 +10,7 @@ export type {
   GetQuoteParams,
   FetchSwapParams,
   QuoteType,
-} from './types/client'
+} from './types'
 
 // Composer types
 export type {
@@ -32,13 +32,13 @@ export type {
   SwapTxn,
   SwapTxnsResponse,
   SwapTxnSignature,
-} from './types/api'
+} from './types'
 
 // Swap processing types
-export type { ProcessedTransaction } from './types/swap'
+export type { ProcessedTransaction } from './types'
 
 // Constants
-export { Protocol } from './utils/constants'
+export { Protocol } from './constants'
 
 // Utilities
-export { HTTPError } from './utils/request'
+export { HTTPError } from './request'

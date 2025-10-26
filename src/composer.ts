@@ -4,15 +4,14 @@ import {
   Transaction,
   waitForConfirmation,
 } from 'algosdk'
-import type { QuoteResponse, SwapTxn } from '@/types/api'
-import type { ProcessedTransaction } from '@/types/swap'
-import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { DEFAULT_CONFIRMATION_ROUNDS } from '@/utils/constants'
+import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
 import {
   processRequiredAppOptIns,
   processSwapTransactions,
   reSignTransaction,
-} from '@/utils/transactions'
+} from './utils'
+import type { QuoteResponse, SwapTxn, ProcessedTransaction } from './types'
+import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
 
 /**
  * Transaction signer function

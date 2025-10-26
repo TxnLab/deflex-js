@@ -1,13 +1,6 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
-import type { QuoteResponse, SwapTxnsResponse } from '@/types/api'
-import type {
-  DeflexConfig,
-  DeflexConfigParams,
-  FetchSwapParams,
-  GetQuoteParams,
-} from '@/types/client'
-import { SwapComposer } from '@/composer'
+import { SwapComposer } from './composer'
 import {
   DEFAULT_ALGOD_PORT,
   DEFAULT_ALGOD_TOKEN,
@@ -20,8 +13,16 @@ import {
   DEFAULT_MAX_GROUP_SIZE,
   DEPRECATED_PROTOCOLS,
   MAX_FEE_BPS,
-} from '@/utils/constants'
-import { request } from '@/utils/request'
+} from './constants'
+import { request } from './request'
+import type {
+  QuoteResponse,
+  SwapTxnsResponse,
+  DeflexConfig,
+  DeflexConfigParams,
+  FetchSwapParams,
+  GetQuoteParams,
+} from './types'
 
 /**
  * Client for interacting with the Deflex order router API
