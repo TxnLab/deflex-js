@@ -69,9 +69,6 @@ export interface FetchQuoteParams {
   /** Maximum depth of the route (default: 4) */
   readonly maxDepth?: number
 
-  /** Only allow atomic (single block) swaps (default: true) */
-  readonly atomicOnly?: boolean
-
   /** Whether to include asset opt-in transaction (overrides config.autoOptIn if set) */
   readonly optIn?: boolean
 

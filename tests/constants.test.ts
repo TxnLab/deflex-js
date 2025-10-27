@@ -10,7 +10,6 @@ import {
   MAX_FEE_BPS,
   DEFAULT_MAX_GROUP_SIZE,
   DEFAULT_MAX_DEPTH,
-  DEFAULT_ATOMIC_ONLY,
   DEFAULT_AUTO_OPT_IN,
   DEFAULT_CONFIRMATION_ROUNDS,
 } from '../src/constants'
@@ -100,10 +99,6 @@ describe('constants', () => {
   })
 
   describe('Swap configuration', () => {
-    it('should have atomic-only enabled by default', () => {
-      expect(DEFAULT_ATOMIC_ONLY).toBe(true)
-    })
-
     it('should have auto opt-in disabled by default', () => {
       expect(DEFAULT_AUTO_OPT_IN).toBe(false)
     })
@@ -136,7 +131,6 @@ describe('constants', () => {
     })
 
     it('should export boolean types for boolean constants', () => {
-      expect(typeof DEFAULT_ATOMIC_ONLY).toBe('boolean')
       expect(typeof DEFAULT_AUTO_OPT_IN).toBe('boolean')
     })
   })

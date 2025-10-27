@@ -165,7 +165,6 @@ describe('DeflexClient', () => {
         disabledProtocols: [Protocol.TinymanV2],
         maxGroupSize: 12,
         maxDepth: 3,
-        atomicOnly: false,
         optIn: true,
       })
 
@@ -179,7 +178,6 @@ describe('DeflexClient', () => {
       )
       expect(callUrl).toContain('maxGroupSize=12')
       expect(callUrl).toContain('maxDepth=3')
-      expect(callUrl).toContain('atomicOnly=false')
       expect(callUrl).toContain('optIn=true')
     })
 

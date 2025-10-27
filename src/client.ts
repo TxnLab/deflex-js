@@ -6,7 +6,6 @@ import {
   DEFAULT_ALGOD_TOKEN,
   DEFAULT_ALGOD_URI,
   DEFAULT_API_BASE_URL,
-  DEFAULT_ATOMIC_ONLY,
   DEFAULT_AUTO_OPT_IN,
   DEFAULT_FEE_BPS,
   DEFAULT_MAX_DEPTH,
@@ -107,7 +106,6 @@ export class DeflexClient {
    * @param params.disabledProtocols - List of protocols to disable (default: [])
    * @param params.maxGroupSize - The maximum group size (default: 16)
    * @param params.maxDepth - The maximum depth (default: 4)
-   * @param params.atomicOnly - Whether to only use atomic swaps (default: true)
    * @param params.address - The address of the account that will perform the swap (recommended when using `config.autoOptIn` or `params.optIn`)
    * @param params.optIn - Whether to include asset opt-in transaction
    *   - If true: API reduces maxGroupSize by 1 and includes opt-in (always included, even if not needed)
@@ -134,7 +132,6 @@ export class DeflexClient {
       disabledProtocols = [],
       maxGroupSize = DEFAULT_MAX_GROUP_SIZE,
       maxDepth = DEFAULT_MAX_DEPTH,
-      atomicOnly = DEFAULT_ATOMIC_ONLY,
       optIn,
       address,
     } = params
@@ -172,7 +169,6 @@ export class DeflexClient {
     url.searchParams.append('disabledProtocols', allDisabledProtocols.join(','))
     url.searchParams.append('maxGroupSize', maxGroupSize.toString())
     url.searchParams.append('maxDepth', maxDepth.toString())
-    url.searchParams.append('atomicOnly', String(atomicOnly))
     url.searchParams.append('optIn', String(includeOptIn))
 
     if (this.config.referrerAddress) {

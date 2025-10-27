@@ -41,9 +41,6 @@ export const DEFAULT_MAX_GROUP_SIZE = 16
 /** Default maximum routing depth (number of hops) */
 export const DEFAULT_MAX_DEPTH = 4
 
-/** Default atomic-only setting (single block execution) */
-export const DEFAULT_ATOMIC_ONLY = true
-
 /** Default auto opt-in setting (automatic asset/app opt-in detection) */
 export const DEFAULT_AUTO_OPT_IN = false
 
