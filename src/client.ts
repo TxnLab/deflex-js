@@ -21,26 +21,21 @@ import type {
   DeflexConfig,
   DeflexConfigParams,
   FetchSwapTxnsParams,
+  FetchSwapTxnsBody,
   FetchQuoteParams,
 } from './types'
 
 /**
  * Client for interacting with the Deflex order router API
  *
- * @param config - The configuration for the client
- * @param config.apiKey - An API key for the Deflex API (required)
- * @param config.algodUri - The URI of the Algod node (default: https://mainnet-api.4160.nodely.dev/)
- * @param config.algodToken - The token for the Algod node (default: '')
- * @param config.algodPort - The port of the Algod node (default: 443)
- * @param config.referrerAddress - The address of the referrer, receives 25% of swap fees (optional)
- * @param config.feeBps - The output fee in basis points (default: 15 = 0.15%, max: 300 = 3.00%)
- * @param config.autoOptIn - Automatically detect and add required opt-in transactions (default: false)
- * @returns A new DeflexClient instance
+ * The DeflexClient provides methods to fetch swap quotes and create transaction composers
+ * for executing swaps on the Algorand blockchain. It handles API communication, transaction
+ * validation, and automatic asset/app opt-in detection.
  *
  * @example
  * ```typescript
  * const deflex = new DeflexClient({
- *   apiKey: 'your-api-key', // required
+ *   apiKey: 'your-api-key',
  * })
  * ```
  *
@@ -51,7 +46,7 @@ import type {
  *   algodUri: 'https://mainnet-api.4160.nodely.dev/',
  *   algodToken: '',
  *   algodPort: 443,
- *   referrerAddress: 'your-referrer-address',
+ *   referrerAddress: 'REFERRER_ADDRESS...',
  *   feeBps: 15,
  *   autoOptIn: false,
  * })
@@ -62,6 +57,18 @@ export class DeflexClient {
   private readonly config: DeflexConfig
   private readonly algorand: AlgorandClient
 
+  /**
+   * Create a new DeflexClient instance
+   *
+   * @param config - Configuration parameters
+   * @param config.apiKey - API key for Deflex API (required)
+   * @param config.algodUri - Algod node URI (default: https://mainnet-api.4160.nodely.dev/)
+   * @param config.algodToken - Algod node token (default: '')
+   * @param config.algodPort - Algod node port (default: 443)
+   * @param config.referrerAddress - Referrer address for fee sharing (receives 25% of swap fees)
+   * @param config.feeBps - Fee in basis points (default: 15 = 0.15%, max: 300 = 3.00%)
+   * @param config.autoOptIn - Automatically detect and add required opt-in transactions (default: false)
+   */
   constructor(config: DeflexConfigParams) {
     // Validate and set config
     this.config = {
@@ -89,6 +96,9 @@ export class DeflexClient {
   /**
    * Fetch a swap quote from the Deflex API
    *
+   * Requests optimal swap routing from the Deflex API. The quote includes routing
+   * information, price impact, required opt-ins, and an encrypted transaction payload.
+   *
    * @param params - Parameters for the quote request
    * @param params.fromAssetId - The ID of the asset to swap from
    * @param params.toAssetId - The ID of the asset to swap to
@@ -98,7 +108,7 @@ export class DeflexClient {
    * @param params.maxGroupSize - The maximum group size (default: 16)
    * @param params.maxDepth - The maximum depth (default: 4)
    * @param params.atomicOnly - Whether to only use atomic swaps (default: true)
-   * @param params.address - The address of the account that will perform the swap (optional, required if `config.autoOptIn` is true)
+   * @param params.address - The address of the account that will perform the swap (recommended when using `config.autoOptIn` or `params.optIn`)
    * @param params.optIn - Whether to include asset opt-in transaction
    *   - If true: API reduces maxGroupSize by 1 and includes opt-in (always included, even if not needed)
    *   - If false: No opt-in transaction included
@@ -173,11 +183,31 @@ export class DeflexClient {
   }
 
   /**
-   * Check if asset opt-in is required
+   * Check if asset opt-in is required for the output asset
+   *
+   * Convenience method to determine if an address needs to opt into the output asset
+   * of a swap. This is useful when you want to get a quote without requiring wallet
+   * connection upfront, but need to know whether to set `optIn: true` in fetchQuote()
+   * to ensure proper routing (as opt-ins reduce maxGroupSize by 1).
+   *
+   * Note: If you enable `config.autoOptIn`, this check is handled automatically when
+   * an address is provided to fetchQuote().
    *
    * @param address - The address to check
-   * @param assetId - The asset ID to check
-   * @returns True if asset opt-in is required, false otherwise
+   * @param assetId - The output asset ID to check
+   * @returns True if asset opt-in is required, false otherwise (always false for ALGO)
+   *
+   * @example
+   * ```typescript
+   * // Check if opt-in needed for output asset before fetching quote
+   * const needsOptIn = await client.needsAssetOptIn(userAddress, toAssetId)
+   * const quote = await client.fetchQuote({
+   *   fromAssetId,
+   *   toAssetId,
+   *   amount,
+   *   optIn: needsOptIn,
+   * })
+   * ```
    */
   async needsAssetOptIn(
     address: string,
@@ -198,10 +228,13 @@ export class DeflexClient {
   /**
    * Fetch swap transactions from the Deflex API
    *
+   * Decrypts the quote payload and generates executable swap transactions for the
+   * specified signer address with the given slippage tolerance.
+   *
    * @param params - Parameters for the swap transaction request
    * @param params.quote - The quote response from fetchQuote()
    * @param params.address - The address of the signer
-   * @param params.slippage - The slippage tolerance
+   * @param params.slippage - The slippage tolerance as a percentage (e.g., 1 for 1%)
    * @returns A FetchSwapTxnsResponse object with transaction data
    */
   async fetchSwapTransactions(
@@ -214,12 +247,7 @@ export class DeflexClient {
 
     const url = new URL(`${this.baseUrl}/fetchExecuteSwapTxns`)
 
-    const body: {
-      apiKey: string
-      address: string
-      txnPayloadJSON: typeof quote.txnPayload
-      slippage: number
-    } = {
+    const body: FetchSwapTxnsBody = {
       apiKey: this.config.apiKey,
       address,
       txnPayloadJSON: quote.txnPayload,
@@ -307,10 +335,6 @@ export class DeflexClient {
 
   /**
    * Validates the API key
-   *
-   * @param apiKey - The API key to validate
-   * @returns The validated API key
-   * @throws An error if the API key is not provided
    */
   private validateApiKey(apiKey: string): string {
     if (!apiKey) {
@@ -321,10 +345,6 @@ export class DeflexClient {
 
   /**
    * Validates an Algorand address
-   *
-   * @param address - The address to validate
-   * @returns The validated address
-   * @throws An error if the address is not a valid Algorand address
    */
   private validateAddress(address: string): string {
     if (!isValidAddress(address)) {
@@ -334,11 +354,7 @@ export class DeflexClient {
   }
 
   /**
-   * Validates the fee in basis points
-   *
-   * @param feeBps - The fee in basis points to validate
-   * @returns The validated fee in basis points
-   * @throws An error if the fee in basis points is not within the valid range
+   * Validates the fee in basis points (max 300 = 3.00%)
    */
   private validateFeeBps(feeBps: number): number {
     if (feeBps < 0 || feeBps > MAX_FEE_BPS) {

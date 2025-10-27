@@ -21,7 +21,9 @@ import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import type { TransactionSigner } from 'algosdk'
 
 /**
- * A signer function that can be either:
+ * A signer function for signing transaction groups
+ *
+ * Can be either:
  * - A TransactionSigner: algosdk.TransactionSigner
  * - A simpler inline function that only accepts the transaction group
  */
@@ -30,7 +32,7 @@ export type SignerFunction =
   | ((txnGroup: Transaction[]) => Promise<Uint8Array[]>)
 
 /**
- * Status of the SwapComposer
+ * Status of the SwapComposer transaction group lifecycle
  */
 export enum SwapComposerStatus {
   /** The atomic group is still under construction. */
@@ -49,13 +51,38 @@ export enum SwapComposerStatus {
   COMMITTED,
 }
 
+/**
+ * Configuration for creating a SwapComposer instance
+ */
 export interface SwapComposerConfig {
+  /** The quote response from fetchQuote() */
   readonly quote: DeflexQuote
+  /** The swap transactions from fetchSwapTransactions() */
   readonly deflexTxns: DeflexTransaction[]
+  /** AlgorandClient instance for blockchain operations */
   readonly algorand: AlgorandClient
+  /** The address of the account that will sign transactions */
   readonly address: string
 }
 
+/**
+ * Composer for building and executing atomic swap transaction groups
+ *
+ * The SwapComposer allows you to build complex transaction groups by adding custom
+ * transactions before and after swap transactions. It handles pre-signed transactions,
+ * automatic app opt-ins, and provides a fluent API for transaction group construction.
+ *
+ * @example
+ * ```typescript
+ * const quote = await deflex.fetchQuote({ ... })
+ * const composer = await deflex.newSwap({ quote, address, slippage })
+ *
+ * await composer
+ *   .addTransaction(customTxn)
+ *   .addSwapTransactions()
+ *   .execute(signer)
+ * ```
+ */
 export class SwapComposer {
   /** The maximum size of an atomic transaction group. */
   static MAX_GROUP_SIZE: number = 16
@@ -71,6 +98,18 @@ export class SwapComposer {
   private readonly algorand: AlgorandClient
   private readonly address: string
 
+  /**
+   * Create a new SwapComposer instance
+   *
+   * Note: Most developers should use DeflexClient.newSwap() instead of constructing
+   * this directly, as the factory method handles fetching swap transactions automatically.
+   *
+   * @param config - Configuration for the composer
+   * @param config.quote - The quote response from fetchQuote()
+   * @param config.deflexTxns - The swap transactions from fetchSwapTransactions()
+   * @param config.algorand - AlgorandClient instance for blockchain operations
+   * @param config.address - The address of the account that will sign transactions
+   */
   constructor(config: SwapComposerConfig) {
     this.quote = config.quote
     this.deflexTxns = config.deflexTxns
@@ -80,6 +119,8 @@ export class SwapComposer {
 
   /**
    * Get the status of this composer's transaction group
+   *
+   * @returns The current status of the transaction group
    */
   getStatus(): SwapComposerStatus {
     return this.status
@@ -87,6 +128,8 @@ export class SwapComposer {
 
   /**
    * Get the number of transactions currently in this atomic group
+   *
+   * @returns The number of transactions in the group
    */
   count(): number {
     return this.transactions.length
@@ -128,6 +171,9 @@ export class SwapComposer {
   /**
    * Add swap transactions to the atomic group
    *
+   * This method automatically processes required app opt-ins and adds all swap
+   * transactions from the quote. Can only be called once per composer instance.
+   *
    * @returns This composer instance for chaining
    * @throws Error if the swap transactions have already been added
    * @throws Error if the composer is not in the BUILDING status
@@ -161,6 +207,9 @@ export class SwapComposer {
 
   /**
    * Sign the transaction group
+   *
+   * Automatically adds swap transactions if not already added, builds the atomic group,
+   * and signs all transactions.
    *
    * @param signer - Transaction signer function. Can be either:
    *   - A algosdk.TransactionSigner: (txnGroup, indexesToSign) => Promise<Uint8Array[]>
@@ -254,10 +303,20 @@ export class SwapComposer {
   /**
    * Submit the signed transactions to the network
    *
+   * This method signs the transaction group (if not already signed) and submits
+   * it to the Algorand network. Does not wait for confirmation.
+   *
    * @param signer - Transaction signer function. Can be either:
    *   - A algosdk.TransactionSigner: (txnGroup, indexesToSign) => Promise<Uint8Array[]>
    *   - An inline function: (txnGroup) => Promise<Uint8Array[]>
    * @returns The transaction IDs
+   * @throws Error if the transaction group has already been submitted
+   *
+   * @example
+   * ```typescript
+   * const txIds = await composer.submit(signer)
+   * console.log('Submitted transactions:', txIds)
+   * ```
    */
   async submit(signer: SignerFunction): Promise<string[]> {
     if (this.status > SwapComposerStatus.SUBMITTED) {
@@ -274,11 +333,23 @@ export class SwapComposer {
   /**
    * Execute the swap
    *
+   * Signs the transaction group, submits it to the network, and waits for confirmation.
+   * This is the primary method for executing swaps and combines sign(), submit(), and
+   * waitForConfirmation() into a single call.
+   *
    * @param signer - Transaction signer function. Can be either:
    *   - A algosdk.TransactionSigner: (txnGroup, indexesToSign) => Promise<Uint8Array[]>
    *   - An inline function: (txnGroup) => Promise<Uint8Array[]>
    * @param waitRounds - The number of rounds to wait for confirmation (default: 4)
-   * @returns The transaction IDs
+   * @returns Object containing the confirmed round and transaction IDs
+   * @throws Error if the transaction group has already been committed
+   *
+   * @example
+   * ```typescript
+   * const result = await composer.execute(signer)
+   * console.log(`Confirmed in round ${result.confirmedRound}`)
+   * console.log('Transaction IDs:', result.txIds)
+   * ```
    */
   async execute(
     signer: SignerFunction,
@@ -322,10 +393,7 @@ export class SwapComposer {
   }
 
   /**
-   * Process swap transactions
    * Processes app opt-ins and decodes swap transactions from API response
-   *
-   * @returns A promise that resolves to an array of processed swap transactions
    */
   private async processSwapTransactions(): Promise<SwapTransaction[]> {
     // Process required app opt-ins
@@ -368,7 +436,7 @@ export class SwapComposer {
   }
 
   /**
-   * Process required app opt-ins
+   * Creates opt-in transactions for apps the user hasn't opted into yet
    */
   private async processRequiredAppOptIns(): Promise<SwapTransaction[]> {
     // Fetch account information
@@ -402,13 +470,9 @@ export class SwapComposer {
   }
 
   /**
-   * Finalize the transaction group and returned the finalized transactions.
+   * Finalizes the transaction group by assigning group IDs
    *
    * The composer's status will be at least BUILT after executing this method.
-   *
-   * @returns The finalized transactions
-   * @throws Error if the composer is not in the BUILDING status
-   * @throws Error if the group has no transactions
    */
   private buildGroup(): SwapTransaction[] {
     if (this.status === SwapComposerStatus.BUILDING) {
@@ -424,7 +488,7 @@ export class SwapComposer {
   }
 
   /**
-   * Re-sign a Deflex transaction using the provided signature
+   * Re-signs a Deflex transaction using the provided logic signature or secret key
    */
   private signDeflexTransaction(
     transaction: Transaction,
