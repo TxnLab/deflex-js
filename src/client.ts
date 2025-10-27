@@ -115,7 +115,7 @@ export class DeflexClient {
    *
    * @example
    * ```typescript
-   * const quote = await client.fetchQuote({
+   * const quote = await deflex.fetchQuote({
    *   address: 'ABC...',
    *   fromAssetId: 0,           // ALGO
    *   toAssetId: 31566704,      // USDC
@@ -196,8 +196,8 @@ export class DeflexClient {
    * @example
    * ```typescript
    * // Check if opt-in needed for output asset before fetching quote
-   * const needsOptIn = await client.needsAssetOptIn(userAddress, toAssetId)
-   * const quote = await client.fetchQuote({
+   * const needsOptIn = await deflex.needsAssetOptIn(userAddress, toAssetId)
+   * const quote = await deflex.fetchQuote({
    *   fromAssetId,
    *   toAssetId,
    *   amount,
