@@ -87,48 +87,6 @@ export class DeflexClient {
   }
 
   /**
-   * Validates the API key
-   *
-   * @param apiKey - The API key to validate
-   * @returns The validated API key
-   * @throws An error if the API key is not provided
-   */
-  private validateApiKey(apiKey: string): string {
-    if (!apiKey) {
-      throw new Error('API key is required')
-    }
-    return apiKey
-  }
-
-  /**
-   * Validates an Algorand address
-   *
-   * @param address - The address to validate
-   * @returns The validated address
-   * @throws An error if the address is not a valid Algorand address
-   */
-  private validateAddress(address: string): string {
-    if (!algosdk.isValidAddress(address)) {
-      throw new Error(`Invalid Algorand address: ${address}`)
-    }
-    return address
-  }
-
-  /**
-   * Validates the fee in basis points
-   *
-   * @param feeBps - The fee in basis points to validate
-   * @returns The validated fee in basis points
-   * @throws An error if the fee in basis points is not within the valid range
-   */
-  private validateFeeBps(feeBps: number): number {
-    if (feeBps < 0 || feeBps > MAX_FEE_BPS) {
-      throw new Error(`Invalid fee in basis points: ${feeBps}`)
-    }
-    return feeBps
-  }
-
-  /**
    * Fetch a swap quote from the Deflex API
    *
    * @param params - Parameters for the quote request
@@ -345,5 +303,47 @@ export class DeflexClient {
     })
 
     return composer
+  }
+
+  /**
+   * Validates the API key
+   *
+   * @param apiKey - The API key to validate
+   * @returns The validated API key
+   * @throws An error if the API key is not provided
+   */
+  private validateApiKey(apiKey: string): string {
+    if (!apiKey) {
+      throw new Error('API key is required')
+    }
+    return apiKey
+  }
+
+  /**
+   * Validates an Algorand address
+   *
+   * @param address - The address to validate
+   * @returns The validated address
+   * @throws An error if the address is not a valid Algorand address
+   */
+  private validateAddress(address: string): string {
+    if (!algosdk.isValidAddress(address)) {
+      throw new Error(`Invalid Algorand address: ${address}`)
+    }
+    return address
+  }
+
+  /**
+   * Validates the fee in basis points
+   *
+   * @param feeBps - The fee in basis points to validate
+   * @returns The validated fee in basis points
+   * @throws An error if the fee in basis points is not within the valid range
+   */
+  private validateFeeBps(feeBps: number): number {
+    if (feeBps < 0 || feeBps > MAX_FEE_BPS) {
+      throw new Error(`Invalid fee in basis points: ${feeBps}`)
+    }
+    return feeBps
   }
 }
