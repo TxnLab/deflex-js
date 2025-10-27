@@ -111,6 +111,20 @@ export class SwapComposer {
    * @param config.address - The address of the account that will sign transactions
    */
   constructor(config: SwapComposerConfig) {
+    // Validate required parameters
+    if (!config.quote) {
+      throw new Error('Quote is required')
+    }
+    if (!config.deflexTxns) {
+      throw new Error('Swap transactions are required')
+    }
+    if (config.deflexTxns.length === 0) {
+      throw new Error('Swap transactions array cannot be empty')
+    }
+    if (!config.algorand) {
+      throw new Error('AlgorandClient instance is required')
+    }
+
     this.quote = config.quote
     this.deflexTxns = config.deflexTxns
     this.algorand = config.algorand

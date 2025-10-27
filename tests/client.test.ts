@@ -1,4 +1,5 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
+import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { DeflexClient } from '../src/client'
 import { Protocol } from '../src/constants'
@@ -423,14 +424,41 @@ describe('DeflexClient', () => {
         requiredAppOptIns: [],
       }
 
+      const validAddress =
+        '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
+
+      const mockTransaction =
+        algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+          sender: validAddress,
+          receiver: validAddress,
+          amount: 1000,
+          suggestedParams: {
+            fee: 1000,
+            firstValid: 1000,
+            lastValid: 2000,
+            genesisID: 'testnet-v1.0',
+            genesisHash: Buffer.from(
+              'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+              'base64',
+            ),
+            minFee: 1000,
+          },
+        })
+
       const mockSwapResponse: FetchSwapTxnsResponse = {
-        txns: [],
+        txns: [
+          {
+            data: Buffer.from(
+              algosdk.encodeUnsignedTransaction(mockTransaction),
+            ).toString('base64'),
+            group: '',
+            logicSigBlob: false,
+            signature: false,
+          },
+        ],
       }
 
       mockRequest.mockResolvedValue(mockSwapResponse)
-
-      const validAddress =
-        '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
       const composer = await client.newSwap({
         quote: mockQuote as DeflexQuote,
