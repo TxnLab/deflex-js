@@ -47,7 +47,7 @@
   "packageManager": "pnpm@10.18.3",
   "scripts": {
     "build": "tsdown && publint --strict",
-    "ci": "pnpm run build && pnpm run format && pnpm run test",
+    "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run test",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
