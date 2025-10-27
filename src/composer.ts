@@ -1,32 +1,28 @@
-import algosdk, {
+import {
   assignGroupID,
+  decodeUnsignedTransaction,
   isValidAddress,
+  signLogicSigTransactionObject,
+  signTransaction,
+  LogicSigAccount,
+  makeApplicationOptInTxnFromObject,
+  msgpackRawDecode,
   Transaction,
   waitForConfirmation,
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
 import type {
-  QuoteResponse,
-  SwapTxn,
-  ProcessedTransaction,
-  SwapTxnSignature,
+  DeflexQuote,
+  DeflexTransaction,
+  SwapTransaction,
+  DeflexSignature,
 } from './types'
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
-
-/**
- * Transaction signer function
- * @param txnGroup - The atomic group containing transactions to be signed
- * @param indexesToSign - An array of indexes in the atomic transaction group that should be signed
- * @returns A promise which resolves an array of encoded signed transactions
- */
-export type TransactionSigner = (
-  txnGroup: Transaction[],
-  indexesToSign: number[],
-) => Promise<Uint8Array[]>
+import type { TransactionSigner } from 'algosdk'
 
 /**
  * A signer function that can be either:
- * - A TransactionSigner: (txnGroup: algosdk.Transaction[], indexesToSign: number[]) => Promise<Uint8Array[]>
+ * - A TransactionSigner: algosdk.TransactionSigner
  * - A simpler inline function that only accepts the transaction group
  */
 export type SignerFunction =
@@ -54,10 +50,10 @@ export enum SwapComposerStatus {
 }
 
 export interface SwapComposerConfig {
-  readonly quote: QuoteResponse
-  readonly swapTxns: SwapTxn[]
+  readonly quote: DeflexQuote
+  readonly deflexTxns: DeflexTransaction[]
   readonly algorand: AlgorandClient
-  readonly signerAddress: string
+  readonly address: string
 }
 
 export class SwapComposer {
@@ -65,21 +61,21 @@ export class SwapComposer {
   static MAX_GROUP_SIZE: number = 16
 
   private status: SwapComposerStatus = SwapComposerStatus.BUILDING
-  private transactions: ProcessedTransaction[] = []
+  private transactions: SwapTransaction[] = []
   private swapTransactionsAdded = false
   private signedTxns: Uint8Array[] = []
   private txIds: string[] = []
 
-  private readonly quote: QuoteResponse
-  private readonly swapTxns: SwapTxn[]
+  private readonly quote: DeflexQuote
+  private readonly deflexTxns: DeflexTransaction[]
   private readonly algorand: AlgorandClient
-  private readonly signerAddress: string
+  private readonly address: string
 
   constructor(config: SwapComposerConfig) {
     this.quote = config.quote
-    this.swapTxns = config.swapTxns
+    this.deflexTxns = config.deflexTxns
     this.algorand = config.algorand
-    this.signerAddress = this.validateAddress(config.signerAddress)
+    this.address = this.validateAddress(config.address)
   }
 
   /**
@@ -196,7 +192,7 @@ export class SwapComposer {
     // Separate user transactions and pre-signed transactions
     const userTransactions: Transaction[] = []
     const userTransactionIndexes: number[] = []
-    const preSignedTxns: Uint8Array[] = []
+    const deflexSignedTxns: Uint8Array[] = []
 
     for (let i = 0; i < transactions.length; i++) {
       const item = transactions[i]
@@ -208,11 +204,11 @@ export class SwapComposer {
         userTransactionIndexes.push(userTransactions.length - 1)
       } else {
         // Pre-signed transaction - re-sign with Deflex signature
-        const signedTxnBlob = this.reSignTransaction(
+        const signedTxnBlob = this.signDeflexTransaction(
           item.txn,
           item.deflexSignature,
         )
-        preSignedTxns.push(signedTxnBlob)
+        deflexSignedTxns.push(signedTxnBlob)
       }
     }
 
@@ -228,7 +224,7 @@ export class SwapComposer {
     // Combine user-signed and pre-signed transactions in correct order
     const signedTxns: Uint8Array[] = []
     let userSignedIndex = 0
-    let preSignedIndex = 0
+    let deflexSignedIndex = 0
 
     for (const item of transactions) {
       if (!item.deflexSignature) {
@@ -238,17 +234,15 @@ export class SwapComposer {
         }
         userSignedIndex++
       } else {
-        const preSignedTxn = preSignedTxns[preSignedIndex]
-        if (preSignedTxn) {
-          signedTxns.push(preSignedTxn)
+        const deflexSignedTxn = deflexSignedTxns[deflexSignedIndex]
+        if (deflexSignedTxn) {
+          signedTxns.push(deflexSignedTxn)
         }
-        preSignedIndex++
+        deflexSignedIndex++
       }
     }
 
-    const txIds = this.transactions.map((processedTxn) =>
-      processedTxn.txn.txID(),
-    )
+    const txIds = this.transactions.map((t) => t.txn.txID())
 
     this.signedTxns = signedTxns
     this.txIds = txIds
@@ -331,36 +325,36 @@ export class SwapComposer {
    * Process swap transactions
    * Processes app opt-ins and decodes swap transactions from API response
    *
-   * @returns A promise that resolves to an array of processed transactions
+   * @returns A promise that resolves to an array of processed swap transactions
    */
-  private async processSwapTransactions(): Promise<ProcessedTransaction[]> {
+  private async processSwapTransactions(): Promise<SwapTransaction[]> {
     // Process required app opt-ins
-    const processedAppOptInTxns = await this.processRequiredAppOptIns()
+    const appOptIns: SwapTransaction[] = await this.processRequiredAppOptIns()
 
     // Decode and process swap transactions from API
-    const processedSwapTxns: ProcessedTransaction[] = []
-    for (let i = 0; i < this.swapTxns.length; i++) {
-      const swapTxn = this.swapTxns[i]
-      if (!swapTxn) continue
+    const swapTxns: SwapTransaction[] = []
+    for (let i = 0; i < this.deflexTxns.length; i++) {
+      const deflexTxn = this.deflexTxns[i]
+      if (!deflexTxn) continue
 
       try {
         // Decode transaction from base64 data
-        const txnBytes = Buffer.from(swapTxn.data, 'base64')
-        const transaction = algosdk.decodeUnsignedTransaction(txnBytes)
+        const txnBytes = Buffer.from(deflexTxn.data, 'base64')
+        const txn = decodeUnsignedTransaction(txnBytes)
 
         // Remove group ID (will be reassigned later)
-        delete transaction.group
+        delete txn.group
 
-        if (swapTxn.signature !== false) {
+        if (deflexTxn.signature !== false) {
           // Pre-signed transaction - needs re-signing with provided signature
-          processedSwapTxns.push({
-            txn: transaction,
-            deflexSignature: swapTxn.signature,
+          swapTxns.push({
+            txn,
+            deflexSignature: deflexTxn.signature,
           })
         } else {
           // User transaction - needs user signature
-          processedSwapTxns.push({
-            txn: transaction,
+          swapTxns.push({
+            txn,
           })
         }
       } catch (error) {
@@ -370,17 +364,15 @@ export class SwapComposer {
       }
     }
 
-    return [...processedAppOptInTxns, ...processedSwapTxns]
+    return [...appOptIns, ...swapTxns]
   }
 
   /**
    * Process required app opt-ins
    */
-  private async processRequiredAppOptIns(): Promise<ProcessedTransaction[]> {
+  private async processRequiredAppOptIns(): Promise<SwapTransaction[]> {
     // Fetch account information
-    const accountInfo = await this.algorand.account.getInformation(
-      this.signerAddress,
-    )
+    const accountInfo = await this.algorand.account.getInformation(this.address)
 
     // Check app opt-ins
     const userApps =
@@ -390,23 +382,23 @@ export class SwapComposer {
     )
 
     // Create opt-in transactions if needed
-    const txns: algosdk.Transaction[] = []
+    const appOptInTxns: Transaction[] = []
     if (appsToOptIn.length > 0) {
       const suggestedParams = await this.algorand.client.algod
         .getTransactionParams()
         .do()
 
       for (const appId of appsToOptIn) {
-        const optInTxn = algosdk.makeApplicationOptInTxnFromObject({
-          sender: this.signerAddress,
+        const optInTxn = makeApplicationOptInTxnFromObject({
+          sender: this.address,
           appIndex: appId,
           suggestedParams,
         })
-        txns.push(optInTxn)
+        appOptInTxns.push(optInTxn)
       }
     }
 
-    return txns.map((txn) => ({ txn }))
+    return appOptInTxns.map((txn) => ({ txn }))
   }
 
   /**
@@ -418,13 +410,13 @@ export class SwapComposer {
    * @throws Error if the composer is not in the BUILDING status
    * @throws Error if the group has no transactions
    */
-  private buildGroup(): ProcessedTransaction[] {
+  private buildGroup(): SwapTransaction[] {
     if (this.status === SwapComposerStatus.BUILDING) {
       if (this.transactions.length === 0) {
         throw new Error('Cannot build a group with 0 transactions')
       }
       if (this.transactions.length > 1) {
-        assignGroupID(this.transactions.map((processedTxn) => processedTxn.txn))
+        assignGroupID(this.transactions.map((t) => t.txn))
       }
       this.status = SwapComposerStatus.BUILT
     }
@@ -432,18 +424,18 @@ export class SwapComposer {
   }
 
   /**
-   * Re-sign a transaction using the provided Deflex signature
+   * Re-sign a Deflex transaction using the provided signature
    */
-  private reSignTransaction(
-    transaction: algosdk.Transaction,
-    signature: SwapTxnSignature,
+  private signDeflexTransaction(
+    transaction: Transaction,
+    signature: DeflexSignature,
   ): Uint8Array {
     try {
       if (signature.type === 'logic_signature') {
         // Decode the signature value to extract the logic signature
         const valueArray = signature.value as Record<string, number>
         const valueBytes = new Uint8Array(Object.values(valueArray))
-        const decoded = algosdk.msgpackRawDecode(valueBytes) as {
+        const decoded = msgpackRawDecode(valueBytes) as {
           lsig?: { l: Uint8Array; arg?: Uint8Array[] }
         }
 
@@ -452,9 +444,9 @@ export class SwapComposer {
         }
 
         const lsig = decoded.lsig
-        const logicSigAccount = new algosdk.LogicSigAccount(lsig.l, lsig.arg)
+        const logicSigAccount = new LogicSigAccount(lsig.l, lsig.arg)
 
-        const signedTxn = algosdk.signLogicSigTransactionObject(
+        const signedTxn = signLogicSigTransactionObject(
           transaction,
           logicSigAccount,
         )
@@ -463,7 +455,7 @@ export class SwapComposer {
         // Convert signature.value (Record<string, number>) to Uint8Array
         const valueArray = signature.value as Record<string, number>
         const secretKey = new Uint8Array(Object.values(valueArray))
-        const signedTxn = algosdk.signTransaction(transaction, secretKey)
+        const signedTxn = signTransaction(transaction, secretKey)
         return signedTxn.blob
       } else {
         throw new Error(`Unsupported signature type: ${signature.type}`)

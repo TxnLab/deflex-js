@@ -1,5 +1,5 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import algosdk from 'algosdk'
+import { isValidAddress } from 'algosdk'
 import { SwapComposer } from './composer'
 import {
   DEFAULT_ALGOD_PORT,
@@ -16,12 +16,12 @@ import {
 } from './constants'
 import { request } from './utils'
 import type {
-  QuoteResponse,
-  SwapTxnsResponse,
+  DeflexQuote,
+  FetchSwapTxnsResponse,
   DeflexConfig,
   DeflexConfigParams,
-  FetchSwapParams,
-  GetQuoteParams,
+  FetchSwapTxnsParams,
+  FetchQuoteParams,
 } from './types'
 
 /**
@@ -103,11 +103,11 @@ export class DeflexClient {
    *   - If true: API reduces maxGroupSize by 1 and includes opt-in (always included, even if not needed)
    *   - If false: No opt-in transaction included
    *   - If undefined: Falls back to `config.autoOptIn` behavior with account check (if `params.address` is provided)
-   * @returns A QuoteResponse object with routing information
+   * @returns A DeflexQuote object with routing information
    *
    * @example
    * ```typescript
-   * const quote = await client.getQuote({
+   * const quote = await client.fetchQuote({
    *   address: 'ABC...',
    *   fromAssetId: 0,           // ALGO
    *   toAssetId: 31566704,      // USDC
@@ -115,7 +115,7 @@ export class DeflexClient {
    * })
    * ```
    */
-  async getQuote(params: GetQuoteParams): Promise<QuoteResponse> {
+  async fetchQuote(params: FetchQuoteParams): Promise<DeflexQuote> {
     const {
       fromAssetId,
       toAssetId,
@@ -143,7 +143,7 @@ export class DeflexClient {
         )
       } else {
         console.warn(
-          'autoOptIn is enabled but no address provided to getQuote(). Asset opt-in check skipped.',
+          'autoOptIn is enabled but no address provided to fetchQuote(). Asset opt-in check skipped.',
         )
       }
     }
@@ -169,7 +169,7 @@ export class DeflexClient {
       url.searchParams.append('referrerAddress', this.config.referrerAddress)
     }
 
-    return request<QuoteResponse>(url.toString())
+    return request<DeflexQuote>(url.toString())
   }
 
   /**
@@ -199,18 +199,18 @@ export class DeflexClient {
    * Fetch swap transactions from the Deflex API
    *
    * @param params - Parameters for the swap transaction request
-   * @param params.quote - The quote response from getQuote()
-   * @param params.signerAddress - The address of the signer
+   * @param params.quote - The quote response from fetchQuote()
+   * @param params.address - The address of the signer
    * @param params.slippage - The slippage tolerance
-   * @returns A SwapTxnsResponse object with transaction data
+   * @returns A FetchSwapTxnsResponse object with transaction data
    */
   async fetchSwapTransactions(
-    params: FetchSwapParams,
-  ): Promise<SwapTxnsResponse> {
-    const { quote, signerAddress, slippage } = params
+    params: FetchSwapTxnsParams,
+  ): Promise<FetchSwapTxnsResponse> {
+    const { quote, address, slippage } = params
 
     // Validate signer address
-    this.validateAddress(signerAddress)
+    this.validateAddress(address)
 
     const url = new URL(`${this.baseUrl}/fetchExecuteSwapTxns`)
 
@@ -221,12 +221,12 @@ export class DeflexClient {
       slippage: number
     } = {
       apiKey: this.config.apiKey,
-      address: signerAddress,
+      address,
       txnPayloadJSON: quote.txnPayload,
       slippage,
     }
 
-    return request<SwapTxnsResponse>(url.toString(), {
+    return request<FetchSwapTxnsResponse>(url.toString(), {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -242,27 +242,27 @@ export class DeflexClient {
    * before and after the swap transactions, with automatic handling of pre-signed transactions
    * and opt-ins.
    *
-   * @param config.quote - The quote response from getQuote()
-   * @param config.signerAddress - The address of the signer
+   * @param config.quote - The quote response from fetchQuote()
+   * @param config.address - The address of the signer
    * @param config.slippage - The slippage tolerance
    * @returns A SwapComposer instance ready for building transaction groups
    *
    * @example
    * ```typescript
    * // Basic swap
-   * const quote = await deflex.getQuote({ ... })
-   * await deflex.newSwap({ quote, slippage, signerAddress })
+   * const quote = await deflex.fetchQuote({ ... })
+   * await deflex.newSwap({ quote, slippage, address })
    *   .execute(signer)
    * ```
    *
    * @example
    * ```typescript
    * // Advanced swap with custom transactions
-   * const quote = await deflex.getQuote({ ... })
+   * const quote = await deflex.fetchQuote({ ... })
    * const swap = await deflex.newSwap({
    *   quote,
    *   slippage,
-   *   signerAddress,
+   *   address,
    * })
    *
    * console.log(swap.getStatus()) // BUILDING
@@ -282,24 +282,24 @@ export class DeflexClient {
    * ```
    */
   async newSwap(config: {
-    quote: QuoteResponse
-    signerAddress: string
+    quote: DeflexQuote
+    address: string
     slippage: number
   }): Promise<SwapComposer> {
-    const { quote, signerAddress, slippage } = config
+    const { quote, address, slippage } = config
 
     const swapResponse = await this.fetchSwapTransactions({
       quote,
-      signerAddress,
+      address,
       slippage,
     })
 
     // Create the composer
     const composer = new SwapComposer({
       quote,
-      swapTxns: swapResponse.txns,
+      deflexTxns: swapResponse.txns,
       algorand: this.algorand,
-      signerAddress,
+      address,
     })
 
     return composer
@@ -327,7 +327,7 @@ export class DeflexClient {
    * @throws An error if the address is not a valid Algorand address
    */
   private validateAddress(address: string): string {
-    if (!algosdk.isValidAddress(address)) {
+    if (!isValidAddress(address)) {
       throw new Error(`Invalid Algorand address: ${address}`)
     }
     return address

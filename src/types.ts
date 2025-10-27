@@ -59,7 +59,7 @@ export type QuoteType = 'fixed-input' | 'fixed-output'
 /**
  * Parameters for requesting a swap quote
  */
-export interface GetQuoteParams {
+export interface FetchQuoteParams {
   /**
    * Input asset ID
    */
@@ -114,16 +114,16 @@ export interface GetQuoteParams {
 /**
  * Parameters for fetching swap transactions
  */
-export interface FetchSwapParams {
+export interface FetchSwapTxnsParams {
   /**
-   * Quote response from getQuote()
+   * Quote response from fetchQuote()
    */
-  readonly quote: QuoteResponse
+  readonly quote: DeflexQuote
 
   /**
    * Algorand address that will sign the transactions
    */
-  readonly signerAddress: string
+  readonly address: string
 
   /**
    * Slippage tolerance as a percentage (e.g., 5 for 5%)
@@ -189,7 +189,7 @@ export interface TxnPayload {
 /**
  * Quote response from the Deflex API
  */
-export interface QuoteResponse {
+export interface DeflexQuote {
   readonly quote: string | number
   readonly profit: Profit
   readonly priceBaseline: number
@@ -212,7 +212,7 @@ export interface QuoteResponse {
 /**
  * Transaction signature from swap API
  */
-export interface SwapTxnSignature {
+export interface DeflexSignature {
   readonly type: 'logic_signature' | 'secret_key'
   readonly value: unknown
 }
@@ -220,24 +220,24 @@ export interface SwapTxnSignature {
 /**
  * Transaction from swap API
  */
-export interface SwapTxn {
+export interface DeflexTransaction {
   readonly data: string
   readonly group: string
   readonly logicSigBlob: unknown | false
-  readonly signature: SwapTxnSignature | false
+  readonly signature: DeflexSignature | false
 }
 
 /**
  * Swap transactions response from the Deflex API
  */
-export interface SwapTxnsResponse {
-  readonly txns: SwapTxn[]
+export interface FetchSwapTxnsResponse {
+  readonly txns: DeflexTransaction[]
 }
 
 /**
  * Processed transaction with signature metadata
  */
-export interface ProcessedTransaction {
+export interface SwapTransaction {
   readonly txn: algosdk.Transaction
-  readonly deflexSignature?: SwapTxnSignature
+  readonly deflexSignature?: DeflexSignature
 }

@@ -2,7 +2,7 @@ import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { SwapComposer, SwapComposerStatus } from '../src/composer'
-import type { QuoteResponse, SwapTxn } from '../src/types'
+import type { DeflexQuote, DeflexTransaction } from '../src/types'
 
 // Mock waitForConfirmation
 vi.mock('algosdk', async () => {
@@ -20,7 +20,7 @@ describe('SwapComposer', () => {
   const validAddress =
     '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
-  const createMockQuote = (): Partial<QuoteResponse> => ({
+  const createMockQuote = (): Partial<DeflexQuote> => ({
     fromASAID: 0,
     toASAID: 31566704,
     quote: '1000000',
@@ -84,10 +84,10 @@ describe('SwapComposer', () => {
   describe('constructor', () => {
     it('should create a composer with valid configuration', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       expect(composer).toBeInstanceOf(SwapComposer)
@@ -95,14 +95,14 @@ describe('SwapComposer', () => {
       expect(composer.count()).toBe(0)
     })
 
-    it('should throw error for invalid signer address', () => {
+    it('should throw error for invalid Algorand address', () => {
       expect(
         () =>
           new SwapComposer({
-            quote: createMockQuote() as QuoteResponse,
-            swapTxns: [],
+            quote: createMockQuote() as DeflexQuote,
+            deflexTxns: [],
             algorand: mockAlgorand,
-            signerAddress: 'invalid-address',
+            address: 'invalid-address',
           }),
       ).toThrow('Invalid Algorand address')
     })
@@ -111,10 +111,10 @@ describe('SwapComposer', () => {
   describe('getStatus', () => {
     it('should return BUILDING status initially', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.BUILDING)
@@ -124,10 +124,10 @@ describe('SwapComposer', () => {
   describe('count', () => {
     it('should return 0 for empty composer', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       expect(composer.count()).toBe(0)
@@ -135,10 +135,10 @@ describe('SwapComposer', () => {
 
     it('should return correct count after adding transactions', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -152,10 +152,10 @@ describe('SwapComposer', () => {
   describe('addTransaction', () => {
     it('should add a transaction to the group', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       const txn = createMockTransaction()
@@ -166,10 +166,10 @@ describe('SwapComposer', () => {
 
     it('should allow chaining', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       const result = composer
@@ -182,10 +182,10 @@ describe('SwapComposer', () => {
 
     it('should throw error when not in BUILDING status', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -207,10 +207,10 @@ describe('SwapComposer', () => {
 
     it('should throw error when exceeding max group size', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       // Add 16 transactions (max group size)
@@ -226,7 +226,7 @@ describe('SwapComposer', () => {
 
   describe('addSwapTransactions', () => {
     it('should add swap transactions to the group', async () => {
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(
           algosdk.encodeUnsignedTransaction(createMockTransaction()),
         ).toString('base64'),
@@ -236,10 +236,10 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       await composer.addSwapTransactions()
@@ -248,7 +248,7 @@ describe('SwapComposer', () => {
     })
 
     it('should throw error when swap transactions already added', async () => {
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(
           algosdk.encodeUnsignedTransaction(createMockTransaction()),
         ).toString('base64'),
@@ -258,10 +258,10 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       await composer.addSwapTransactions()
@@ -272,7 +272,7 @@ describe('SwapComposer', () => {
     })
 
     it('should throw error when not in BUILDING status', async () => {
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(
           algosdk.encodeUnsignedTransaction(createMockTransaction()),
         ).toString('base64'),
@@ -282,10 +282,10 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -307,20 +307,23 @@ describe('SwapComposer', () => {
     })
 
     it('should throw error when exceeding max group size', async () => {
-      const mockSwapTxns: SwapTxn[] = Array.from({ length: 17 }, () => ({
-        data: Buffer.from(
-          algosdk.encodeUnsignedTransaction(createMockTransaction()),
-        ).toString('base64'),
-        signature: false,
-        group: '',
-        logicSigBlob: false,
-      }))
+      const mockDeflexTxns: DeflexTransaction[] = Array.from(
+        { length: 17 },
+        () => ({
+          data: Buffer.from(
+            algosdk.encodeUnsignedTransaction(createMockTransaction()),
+          ).toString('base64'),
+          signature: false,
+          group: '',
+          logicSigBlob: false,
+        }),
+      )
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: mockSwapTxns,
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: mockDeflexTxns,
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       await expect(composer.addSwapTransactions()).rejects.toThrow(
@@ -329,7 +332,7 @@ describe('SwapComposer', () => {
     })
 
     it('should process app opt-ins when required', async () => {
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(
           algosdk.encodeUnsignedTransaction(createMockTransaction()),
         ).toString('base64'),
@@ -338,16 +341,16 @@ describe('SwapComposer', () => {
         logicSigBlob: false,
       }
 
-      const quote: Partial<QuoteResponse> = {
+      const quote: Partial<DeflexQuote> = {
         ...createMockQuote(),
         requiredAppOptIns: [123456],
       }
 
       const composer = new SwapComposer({
-        quote: quote as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: quote as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       await composer.addSwapTransactions()
@@ -360,10 +363,10 @@ describe('SwapComposer', () => {
   describe('sign', () => {
     it('should sign transactions and return signed blobs', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -383,7 +386,7 @@ describe('SwapComposer', () => {
     })
 
     it('should automatically add swap transactions if not added', async () => {
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(
           algosdk.encodeUnsignedTransaction(createMockTransaction()),
         ).toString('base64'),
@@ -393,10 +396,10 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       expect(composer.count()).toBe(0)
@@ -413,10 +416,10 @@ describe('SwapComposer', () => {
 
     it('should return cached signed transactions on subsequent calls', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -448,7 +451,7 @@ describe('SwapComposer', () => {
       const txn = createMockTransaction(appAddress.toString())
       const signedTxn = algosdk.signLogicSigTransactionObject(txn, logicSig)
 
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString(
           'base64',
         ),
@@ -463,10 +466,10 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       await composer.addSwapTransactions()
@@ -484,10 +487,10 @@ describe('SwapComposer', () => {
 
     it('should assign group ID to transactions', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       const txn1 = createMockTransaction()
@@ -512,10 +515,10 @@ describe('SwapComposer', () => {
   describe('submit', () => {
     it('should submit signed transactions to the network', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -536,10 +539,10 @@ describe('SwapComposer', () => {
 
     it('should throw error when trying to resubmit', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -572,10 +575,10 @@ describe('SwapComposer', () => {
   describe('execute', () => {
     it('should execute the swap and wait for confirmation', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -596,10 +599,10 @@ describe('SwapComposer', () => {
 
     it('should throw error when already committed', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -625,10 +628,10 @@ describe('SwapComposer', () => {
 
     it('should use custom wait rounds parameter', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       composer.addTransaction(createMockTransaction())
@@ -653,7 +656,7 @@ describe('SwapComposer', () => {
   describe('transaction processing (via public API)', () => {
     describe('app opt-in processing', () => {
       it('should not create opt-in transactions when none required', async () => {
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexTxn: DeflexTransaction = {
           data: Buffer.from(
             algosdk.encodeUnsignedTransaction(createMockTransaction()),
           ).toString('base64'),
@@ -662,16 +665,16 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<QuoteResponse> = {
+        const quote: Partial<DeflexQuote> = {
           ...createMockQuote(),
           requiredAppOptIns: [], // No opt-ins required
         }
 
         const composer = new SwapComposer({
-          quote: quote as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: quote as DeflexQuote,
+          deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -681,7 +684,7 @@ describe('SwapComposer', () => {
       })
 
       it('should not create opt-in transactions when already opted in', async () => {
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexTxn: DeflexTransaction = {
           data: Buffer.from(
             algosdk.encodeUnsignedTransaction(createMockTransaction()),
           ).toString('base64'),
@@ -690,7 +693,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<QuoteResponse> = {
+        const quote: Partial<DeflexQuote> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456],
         }
@@ -702,10 +705,10 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: quote as DeflexQuote,
+          deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -715,7 +718,7 @@ describe('SwapComposer', () => {
       })
 
       it('should create opt-in transactions for missing apps', async () => {
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexTxn: DeflexTransaction = {
           data: Buffer.from(
             algosdk.encodeUnsignedTransaction(createMockTransaction()),
           ).toString('base64'),
@@ -724,7 +727,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<QuoteResponse> = {
+        const quote: Partial<DeflexQuote> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456],
         }
@@ -736,10 +739,10 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: quote as DeflexQuote,
+          deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -749,7 +752,7 @@ describe('SwapComposer', () => {
       })
 
       it('should only create opt-ins for apps not already opted in', async () => {
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexTxn: DeflexTransaction = {
           data: Buffer.from(
             algosdk.encodeUnsignedTransaction(createMockTransaction()),
           ).toString('base64'),
@@ -758,7 +761,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<QuoteResponse> = {
+        const quote: Partial<DeflexQuote> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456, 789012, 345678],
         }
@@ -770,10 +773,10 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: quote as DeflexQuote,
+          deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -783,7 +786,7 @@ describe('SwapComposer', () => {
       })
 
       it('should handle empty appsLocalState', async () => {
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexTxn: DeflexTransaction = {
           data: Buffer.from(
             algosdk.encodeUnsignedTransaction(createMockTransaction()),
           ).toString('base64'),
@@ -792,7 +795,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<QuoteResponse> = {
+        const quote: Partial<DeflexQuote> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456],
         }
@@ -804,10 +807,10 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: quote as DeflexQuote,
+          deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -819,7 +822,7 @@ describe('SwapComposer', () => {
 
     describe('swap transaction decoding', () => {
       it('should process a single user transaction', async () => {
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexTxn: DeflexTransaction = {
           data: Buffer.from(
             algosdk.encodeUnsignedTransaction(createMockTransaction()),
           ).toString('base64'),
@@ -829,10 +832,10 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: createMockQuote() as DeflexQuote,
+          deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -841,7 +844,7 @@ describe('SwapComposer', () => {
       })
 
       it('should process multiple transactions', async () => {
-        const mockSwapTxns: SwapTxn[] = [
+        const mockDeflexTxns: DeflexTransaction[] = [
           {
             data: Buffer.from(
               algosdk.encodeUnsignedTransaction(createMockTransaction()),
@@ -861,10 +864,10 @@ describe('SwapComposer', () => {
         ]
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as QuoteResponse,
-          swapTxns: mockSwapTxns,
+          quote: createMockQuote() as DeflexQuote,
+          deflexTxns: mockDeflexTxns,
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -873,7 +876,7 @@ describe('SwapComposer', () => {
       })
 
       it('should throw error for invalid transaction data', async () => {
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexTxn: DeflexTransaction = {
           data: 'invalid-base64-data',
           signature: false,
           group: '',
@@ -881,10 +884,10 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: createMockQuote() as DeflexQuote,
+          deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await expect(composer.addSwapTransactions()).rejects.toThrow(
@@ -894,10 +897,10 @@ describe('SwapComposer', () => {
 
       it('should handle empty transaction array', async () => {
         const composer = new SwapComposer({
-          quote: createMockQuote() as QuoteResponse,
-          swapTxns: [],
+          quote: createMockQuote() as DeflexQuote,
+          deflexTxns: [],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -916,7 +919,7 @@ describe('SwapComposer', () => {
         const txn = createMockTransaction(appAddress.toString())
         const signedTxn = algosdk.signLogicSigTransactionObject(txn, logicSig)
 
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexLsigTxn: DeflexTransaction = {
           data: Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString(
             'base64',
           ),
@@ -931,10 +934,10 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: createMockQuote() as DeflexQuote,
+          deflexTxns: [mockDeflexLsigTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -954,7 +957,7 @@ describe('SwapComposer', () => {
         const account = algosdk.generateAccount()
         const txn = createMockTransaction(account.addr.toString())
 
-        const mockSwapTxn: SwapTxn = {
+        const mockDeflexSkTxn: DeflexTransaction = {
           data: Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString(
             'base64',
           ),
@@ -969,10 +972,10 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as QuoteResponse,
-          swapTxns: [mockSwapTxn],
+          quote: createMockQuote() as DeflexQuote,
+          deflexTxns: [mockDeflexSkTxn],
           algorand: mockAlgorand,
-          signerAddress: validAddress,
+          address: validAddress,
         })
 
         await composer.addSwapTransactions()
@@ -992,7 +995,7 @@ describe('SwapComposer', () => {
 
   describe('integration scenarios', () => {
     it('should handle a complete swap workflow', async () => {
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(
           algosdk.encodeUnsignedTransaction(createMockTransaction()),
         ).toString('base64'),
@@ -1002,10 +1005,10 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.BUILDING)
@@ -1034,7 +1037,7 @@ describe('SwapComposer', () => {
     })
 
     it('should handle swap without additional transactions', async () => {
-      const mockSwapTxn: SwapTxn = {
+      const mockDeflexTxn: DeflexTransaction = {
         data: Buffer.from(
           algosdk.encodeUnsignedTransaction(createMockTransaction()),
         ).toString('base64'),
@@ -1044,10 +1047,10 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as QuoteResponse,
-        swapTxns: [mockSwapTxn],
+        quote: createMockQuote() as DeflexQuote,
+        deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
-        signerAddress: validAddress,
+        address: validAddress,
       })
 
       // Execute without manually adding swap transactions
