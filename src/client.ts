@@ -358,7 +358,9 @@ export class DeflexClient {
    */
   private validateFeeBps(feeBps: number): number {
     if (feeBps < 0 || feeBps > MAX_FEE_BPS) {
-      throw new Error(`Invalid fee in basis points: ${feeBps}`)
+      throw new Error(
+        `Invalid fee: ${feeBps} basis points (must be between 0 and ${MAX_FEE_BPS})`,
+      )
     }
     return feeBps
   }

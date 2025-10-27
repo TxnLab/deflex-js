@@ -76,11 +76,11 @@ describe('DeflexClient', () => {
 
     it('should validate feeBps is within range', () => {
       expect(() => new DeflexClient({ ...validConfig, feeBps: -1 })).toThrow(
-        'Invalid fee in basis points',
+        'Invalid fee',
       )
 
       expect(() => new DeflexClient({ ...validConfig, feeBps: 301 })).toThrow(
-        'Invalid fee in basis points',
+        'Invalid fee',
       )
     })
 
