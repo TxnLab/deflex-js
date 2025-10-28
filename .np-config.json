@@ -1,0 +1,4 @@
+{
+  "testScript": "ci",
+  "message": "chore: release v%s"
+}
