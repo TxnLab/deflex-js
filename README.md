@@ -67,13 +67,13 @@ const deflex = new DeflexClient({
 
 ### Get a Swap Quote
 
-The [`newQuote()`](#deflexclientnewquote) method returns a [`DeflexQuote`](#deflexquote) instance:
+The [`newQuote()`](#deflexclientnewquote) method returns a [`DeflexQuote`](#deflexquote) object:
 
 ```typescript
 // Basic quote
 const quote = await deflex.newQuote({
-  fromAssetId: 0, // ALGO
-  toAssetId: 31566704, // USDC
+  fromASAID: 0, // ALGO
+  toASAID: 31566704, // USDC
   amount: 1_000_000, // 1 ALGO
   address: userAddress, // Required for auto opt-in detection
 })
@@ -252,16 +252,16 @@ new DeflexClient(config: DeflexConfigParams)
 
 #### DeflexClient.newQuote()
 
-Fetch a swap quote and return a [`DeflexQuote`](#deflexquote) instance.
+Fetch a swap quote and return a [`DeflexQuote`](#deflexquote) object.
 
 ```typescript
-async newQuote(params: QuoteParams): Promise<DeflexQuote>
+async newQuote(params: FetchQuoteParams): Promise<DeflexQuote>
 ```
 
 | Parameter           | Description                                | Type                              | Default         |
 | ------------------- | ------------------------------------------ | --------------------------------- | --------------- |
-| `fromAssetId`       | Input asset ID                             | `bigint \| number`                | **required**    |
-| `toAssetId`         | Output asset ID                            | `bigint \| number`                | **required**    |
+| `fromASAID`         | Input asset ID                             | `bigint \| number`                | **required**    |
+| `toASAID`           | Output asset ID                            | `bigint \| number`                | **required**    |
 | `amount`            | Amount to swap in base units               | `bigint \| number`                | **required**    |
 | `type`              | Quote type                                 | `'fixed-input' \| 'fixed-output'` | `'fixed-input'` |
 | `address`           | User address (recommended for auto opt-in) | `string`                          | `undefined`     |
@@ -280,7 +280,7 @@ async newSwap(config: SwapComposerConfig): Promise<SwapComposer>
 
 | Parameter  | Description                                       | Type                                                                                    |
 | ---------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `quote`    | Quote instance or response object                 | `DeflexQuote \| FetchQuoteResponse`                                                     |
+| `quote`    | Quote result or raw API response                  | `DeflexQuote \| FetchQuoteResponse`                                                     |
 | `address`  | Signer address                                    | `string`                                                                                |
 | `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                                                                                |
 | `signer`   | Transaction signer function                       | `algosdk.TransactionSigner \| ((txns: algosdk.Transaction[]) => Promise<Uint8Array[]>)` |
@@ -300,16 +300,23 @@ async needsAssetOptIn(address: string, assetId: bigint | number): Promise<boolea
 
 ### DeflexQuote
 
-Wrapper class for quote responses returned by [`newQuote()`](#deflexclientnewquote).
+Plain object returned by [`newQuote()`](#deflexclientnewquote). Extends the raw API response with additional metadata.
+
+**Additional properties added by SDK:**
+
+| Property    | Description                          | Type                  |
+| ----------- | ------------------------------------ | --------------------- |
+| `quote`     | Quoted amount (coerced to `bigint`)  | `bigint`              |
+| `amount`    | Original request amount              | `bigint`              |
+| `address`   | User address (if provided)           | `string \| undefined` |
+| `createdAt` | Timestamp when quote was created     | `number`              |
+
+**All properties from API response:**
 
 | Property            | Description                                      | Type                     |
 | ------------------- | ------------------------------------------------ | ------------------------ |
-| `quote`             | Quoted amount                                    | `bigint`                 |
-| `amount`            | Original request amount                          | `bigint`                 |
-| `address`           | User address (if provided)                       | `string \| undefined`    |
-| `createdAt`         | Timestamp when quote was created                 | `number`                 |
-| `fromAssetId`       | Input asset ID                                   | `number`                 |
-| `toAssetId`         | Output asset ID                                  | `number`                 |
+| `fromASAID`         | Input asset ID                                   | `number`                 |
+| `toASAID`           | Output asset ID                                  | `number`                 |
 | `type`              | Quote type (`'fixed-input'` or `'fixed-output'`) | `string`                 |
 | `profit`            | Profit information                               | `Profit`                 |
 | `priceBaseline`     | Baseline price without fees                      | `number`                 |
@@ -323,37 +330,7 @@ Wrapper class for quote responses returned by [`newQuote()`](#deflexclientnewquo
 | `requiredAppOptIns` | Required app opt-ins                             | `number[]`               |
 | `txnPayload`        | Encrypted transaction payload                    | `TxnPayload \| null`     |
 | `protocolFees`      | Fees by protocol                                 | `Record<string, number>` |
-| `response`          | Raw API response                                 | `FetchQuoteResponse`     |
-
-#### DeflexQuote.getSlippageAmount()
-
-Calculates the slippage-adjusted amount.
-
-- For **fixed-input** swaps: Returns minimum output amount
-- For **fixed-output** swaps: Returns maximum input amount
-
-```typescript
-getSlippageAmount(slippage: number): bigint
-```
-
-| Parameter  | Description                                       | Type     |
-| ---------- | ------------------------------------------------- | -------- |
-| `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number` |
-
-**Example:**
-
-```typescript
-const quote = await deflex.newQuote({
-  fromAssetId: 0,
-  toAssetId: 31566704,
-  amount: 1_000_000,
-  type: 'fixed-input',
-})
-
-// Get minimum output with 1% slippage
-const minOutput = quote.getSlippageAmount(1)
-console.log(`Minimum you'll receive: ${minOutput}`)
-```
+| `timing`            | Performance timing data                          | `unknown \| undefined`   |
 
 ### SwapComposer
 

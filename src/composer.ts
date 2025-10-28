@@ -16,6 +16,7 @@ import type {
   DeflexTransaction,
   SwapTransaction,
   DeflexSignature,
+  DeflexQuote,
 } from './types'
 import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import type { TransactionSigner } from 'algosdk'
@@ -55,8 +56,8 @@ export enum SwapComposerStatus {
  * Configuration for creating a SwapComposer instance
  */
 export interface SwapComposerConfig {
-  /** The quote response from fetchQuote() */
-  readonly quote: FetchQuoteResponse
+  /** The quote response from fetchQuote() or newQuote() */
+  readonly quote: FetchQuoteResponse | DeflexQuote
   /** The swap transactions from fetchSwapTransactions() */
   readonly deflexTxns: DeflexTransaction[]
   /** AlgorandClient instance for blockchain operations */
@@ -95,7 +96,7 @@ export class SwapComposer {
   private signedTxns: Uint8Array[] = []
   private txIds: string[] = []
 
-  private readonly quote: FetchQuoteResponse
+  private readonly requiredAppOptIns: number[]
   private readonly deflexTxns: DeflexTransaction[]
   private readonly algorand: AlgorandClient
   private readonly address: string
@@ -108,7 +109,7 @@ export class SwapComposer {
    * this directly, as the factory method handles fetching swap transactions automatically.
    *
    * @param config - Configuration for the composer
-   * @param config.quote - The quote response from fetchQuote()
+   * @param config.requiredAppOptIns - The quote response from fetchQuote()
    * @param config.deflexTxns - The swap transactions from fetchSwapTransactions()
    * @param config.algorand - AlgorandClient instance for blockchain operations
    * @param config.address - The address of the account that will sign transactions
@@ -132,7 +133,7 @@ export class SwapComposer {
       throw new Error('Signer is required')
     }
 
-    this.quote = config.quote
+    this.requiredAppOptIns = config.quote.requiredAppOptIns
     this.deflexTxns = config.deflexTxns
     this.algorand = config.algorand
     this.address = this.validateAddress(config.address)
@@ -451,7 +452,7 @@ export class SwapComposer {
     // Check app opt-ins
     const userApps =
       accountInfo?.appsLocalState?.map((app) => Number(app.id)) || []
-    const appsToOptIn = this.quote.requiredAppOptIns.filter(
+    const appsToOptIn = this.requiredAppOptIns.filter(
       (appId) => !userApps.includes(appId),
     )
 

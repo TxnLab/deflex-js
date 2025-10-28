@@ -77,38 +77,6 @@ export interface FetchQuoteParams {
 }
 
 /**
- * Parameters for requesting a swap quote (class-based method)
- */
-export interface QuoteParams {
-  /** Input asset ID */
-  readonly fromAssetId: bigint | number
-
-  /** Output asset ID */
-  readonly toAssetId: bigint | number
-
-  /** Amount to swap (in base units) */
-  readonly amount: bigint | number
-
-  /** Quote type (default: 'fixed-input') */
-  readonly type?: QuoteType
-
-  /** Protocols to exclude from routing (default: []) */
-  readonly disabledProtocols?: readonly Protocol[]
-
-  /** Maximum transaction group size (default: 16) */
-  readonly maxGroupSize?: number
-
-  /** Maximum depth of the route (default: 4) */
-  readonly maxDepth?: number
-
-  /** Whether to include asset opt-in transaction (overrides config.autoOptIn if set) */
-  readonly optIn?: boolean
-
-  /** Address of the account that will perform the swap (required if autoOptIn is enabled) */
-  readonly address?: string
-}
-
-/**
  * Asset information from the Deflex API
  */
 export interface Asset {
@@ -223,6 +191,30 @@ export interface FetchQuoteResponse {
 }
 
 /**
+ * Enhanced quote result returned by DeflexClient.newQuote()
+ *
+ * Extends the raw API response with additional metadata and type normalization.
+ */
+export type DeflexQuote = Omit<FetchQuoteResponse, 'quote'> & {
+  /**
+   * The quoted output amount or input amount (coerced to bigint)
+   *
+   * For fixed-input swaps: This is the output amount you'll receive
+   * For fixed-output swaps: This is the input amount you'll need to provide
+   */
+  readonly quote: bigint
+
+  /** The original amount from the quote request (in base units) */
+  readonly amount: bigint
+
+  /** The address parameter from the quote request (if provided) */
+  readonly address?: string
+
+  /** Timestamp when the quote was created (in milliseconds) */
+  readonly createdAt: number
+}
+
+/**
  * Transaction signature from the Deflex API
  */
 export interface DeflexSignature {
@@ -250,8 +242,8 @@ export interface DeflexTransaction {
  * Parameters for fetching executable swap transactions
  */
 export interface FetchSwapTxnsParams {
-  /** Quote response from fetchQuote() */
-  readonly quote: FetchQuoteResponse
+  /** Quote response from fetchQuote() or newQuote() */
+  readonly quote: FetchQuoteResponse | DeflexQuote
 
   /** Algorand address that will sign the transactions */
   readonly address: string

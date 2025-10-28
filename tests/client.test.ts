@@ -3,7 +3,6 @@ import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { DeflexClient } from '../src/client'
 import { Protocol } from '../src/constants'
-import { DeflexQuote } from '../src/quote'
 import type { FetchQuoteResponse, FetchSwapTxnsResponse } from '../src/types'
 
 // Mock the AlgorandClient
@@ -415,7 +414,7 @@ describe('DeflexClient', () => {
       mockRequest.mockClear()
     })
 
-    it('should return a DeflexQuote instance', async () => {
+    it('should return a QuoteResult plain object', async () => {
       const mockQuoteResponse: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
@@ -449,19 +448,24 @@ describe('DeflexClient', () => {
         '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
       const quote = await client.newQuote({
-        fromAssetId: 0,
-        toAssetId: 31566704,
+        fromASAID: 0,
+        toASAID: 31566704,
         amount: 1_000_000,
         address: validAddress,
       })
 
-      expect(quote).toBeInstanceOf(DeflexQuote)
+      // Check it's a plain object, not a class instance
+      expect(Object.getPrototypeOf(quote)).toBe(Object.prototype)
       expect(quote.quote).toBe(5000000n)
       expect(quote.amount).toBe(1000000n)
       expect(quote.address).toBe(validAddress)
-      expect(quote.fromAssetId).toBe(0)
-      expect(quote.toAssetId).toBe(31566704)
+      expect(quote.fromASAID).toBe(0)
+      expect(quote.toASAID).toBe(31566704)
       expect(typeof quote.createdAt).toBe('number')
+
+      // Check that all API response properties are present
+      expect(quote.profit).toEqual(mockQuoteResponse.profit)
+      expect(quote.priceBaseline).toBe(5.0)
     })
 
     it('should handle BigInt values for asset IDs and amounts', async () => {
@@ -478,16 +482,16 @@ describe('DeflexClient', () => {
       mockRequest.mockResolvedValue(mockQuoteResponse)
 
       const quote = await client.newQuote({
-        fromAssetId: 0n,
-        toAssetId: 31566704n,
+        fromASAID: 0n,
+        toASAID: 31566704n,
         amount: 1_000_000n,
       })
 
-      expect(quote).toBeInstanceOf(DeflexQuote)
+      expect(Object.getPrototypeOf(quote)).toBe(Object.prototype)
       expect(quote.amount).toBe(1000000n)
     })
 
-    it('should convert API naming to class-based naming', async () => {
+    it('should use consistent API naming', async () => {
       const mockQuoteResponse: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
@@ -501,8 +505,8 @@ describe('DeflexClient', () => {
       mockRequest.mockResolvedValue(mockQuoteResponse)
 
       await client.newQuote({
-        fromAssetId: 0,
-        toAssetId: 31566704,
+        fromASAID: 0,
+        toASAID: 31566704,
         amount: 1_000_000,
       })
 
@@ -586,7 +590,7 @@ describe('DeflexClient', () => {
       expect(typeof composer.addSwapTransactions).toBe('function')
     })
 
-    it('should create a SwapComposer instance from DeflexQuote', async () => {
+    it('should create a SwapComposer instance from QuoteResult', async () => {
       const mockQuoteResponse: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
@@ -600,8 +604,12 @@ describe('DeflexClient', () => {
       const validAddress =
         '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
-      const deflexQuote = new DeflexQuote({
-        response: mockQuoteResponse as FetchQuoteResponse,
+      // Mock the newQuote call to return QuoteResult
+      mockRequest.mockResolvedValueOnce(mockQuoteResponse)
+
+      const quoteResult = await client.newQuote({
+        fromASAID: 0,
+        toASAID: 31566704,
         amount: 1_000_000,
         address: validAddress,
       })
@@ -637,10 +645,10 @@ describe('DeflexClient', () => {
         ],
       }
 
-      mockRequest.mockResolvedValue(mockSwapResponse)
+      mockRequest.mockResolvedValueOnce(mockSwapResponse)
 
       const composer = await client.newSwap({
-        quote: deflexQuote,
+        quote: quoteResult,
         address: validAddress,
         slippage: 1.0,
         signer: async (txns: algosdk.Transaction[]) =>
