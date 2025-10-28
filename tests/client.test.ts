@@ -3,7 +3,8 @@ import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { DeflexClient } from '../src/client'
 import { Protocol } from '../src/constants'
-import type { DeflexQuote, FetchSwapTxnsResponse } from '../src/types'
+import { DeflexQuote } from '../src/quote'
+import type { FetchQuoteResponse, FetchSwapTxnsResponse } from '../src/types'
 
 // Mock the AlgorandClient
 vi.mock('@algorandfoundation/algokit-utils', () => ({
@@ -125,7 +126,7 @@ describe('DeflexClient', () => {
     })
 
     it('should fetch a quote with minimal parameters', async () => {
-      const mockQuote: Partial<DeflexQuote> = {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -137,8 +138,8 @@ describe('DeflexClient', () => {
       mockRequest.mockResolvedValue(mockQuote)
 
       const result = await client.fetchQuote({
-        fromAssetId: 0,
-        toAssetId: 31566704,
+        fromASAID: 0,
+        toASAID: 31566704,
         amount: 1_000_000,
       })
 
@@ -147,7 +148,7 @@ describe('DeflexClient', () => {
     })
 
     it('should include all query parameters in the request', async () => {
-      const mockQuote: Partial<DeflexQuote> = {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -159,8 +160,8 @@ describe('DeflexClient', () => {
       mockRequest.mockResolvedValue(mockQuote)
 
       await client.fetchQuote({
-        fromAssetId: 0,
-        toAssetId: 31566704,
+        fromASAID: 0,
+        toASAID: 31566704,
         amount: 1_000_000,
         type: 'fixed-output',
         disabledProtocols: [Protocol.TinymanV2],
@@ -183,7 +184,7 @@ describe('DeflexClient', () => {
     })
 
     it('should include deprecated protocols in disabled list', async () => {
-      const mockQuote: Partial<DeflexQuote> = {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -195,8 +196,8 @@ describe('DeflexClient', () => {
       mockRequest.mockResolvedValue(mockQuote)
 
       await client.fetchQuote({
-        fromAssetId: 0,
-        toAssetId: 31566704,
+        fromASAID: 0,
+        toASAID: 31566704,
         amount: 1_000_000,
       })
 
@@ -219,7 +220,7 @@ describe('DeflexClient', () => {
       })
       mockAlgorand.account.getInformation = mockGetInfo
 
-      const mockQuote: Partial<DeflexQuote> = {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -237,8 +238,8 @@ describe('DeflexClient', () => {
       ;(clientWithAutoOptIn as any).algorand = mockAlgorand
 
       await clientWithAutoOptIn.fetchQuote({
-        fromAssetId: 0,
-        toAssetId: 31566704,
+        fromASAID: 0,
+        toASAID: 31566704,
         amount: 1_000_000,
         address: validAddress,
       })
@@ -247,7 +248,7 @@ describe('DeflexClient', () => {
     })
 
     it('should handle BigInt values for asset IDs and amounts', async () => {
-      const mockQuote: Partial<DeflexQuote> = {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -259,8 +260,8 @@ describe('DeflexClient', () => {
       mockRequest.mockResolvedValue(mockQuote)
 
       await client.fetchQuote({
-        fromAssetId: 0n,
-        toAssetId: 31566704n,
+        fromASAID: 0n,
+        toASAID: 31566704n,
         amount: 1_000_000n,
       })
 
@@ -341,7 +342,7 @@ describe('DeflexClient', () => {
     })
 
     it('should fetch swap transactions', async () => {
-      const mockQuote: Partial<DeflexQuote> = {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -360,7 +361,7 @@ describe('DeflexClient', () => {
         '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
       const result = await client.fetchSwapTransactions({
-        quote: mockQuote as DeflexQuote,
+        quote: mockQuote as FetchQuoteResponse,
         address: validAddress,
         slippage: 1.0,
       })
@@ -382,7 +383,7 @@ describe('DeflexClient', () => {
     })
 
     it('should throw error for invalid Algorand address', async () => {
-      const mockQuote: Partial<DeflexQuote> = {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -393,11 +394,121 @@ describe('DeflexClient', () => {
 
       await expect(
         client.fetchSwapTransactions({
-          quote: mockQuote as DeflexQuote,
+          quote: mockQuote as FetchQuoteResponse,
           address: 'invalid-address',
           slippage: 1.0,
         }),
       ).rejects.toThrow('Invalid Algorand address')
+    })
+  })
+
+  describe('newQuote', () => {
+    let client: DeflexClient
+    let mockRequest: ReturnType<typeof vi.fn>
+
+    beforeEach(async () => {
+      client = new DeflexClient(validConfig)
+      const requestModule = vi.mocked(await import('../src/utils'), {
+        partial: true,
+      })
+      mockRequest = requestModule.request as ReturnType<typeof vi.fn>
+      mockRequest.mockClear()
+    })
+
+    it('should return a DeflexQuote instance', async () => {
+      const mockQuoteResponse: Partial<FetchQuoteResponse> = {
+        fromASAID: 0,
+        toASAID: 31566704,
+        quote: '5000000',
+        type: 'fixed-input',
+        route: [],
+        txnPayload: { iv: 'test-iv', data: 'test-data' },
+        requiredAppOptIns: [],
+        profit: {
+          amount: 100,
+          asa: {
+            id: 0,
+            decimals: 6,
+            unit_name: 'ALGO',
+            name: 'Algorand',
+            price_algo: 1,
+            price_usd: 0.2,
+          },
+        },
+        priceBaseline: 5.0,
+        usdIn: 0.2,
+        usdOut: 1.0,
+        flattenedRoute: {},
+        quotes: [],
+        protocolFees: {},
+      }
+
+      mockRequest.mockResolvedValue(mockQuoteResponse)
+
+      const validAddress =
+        '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
+
+      const quote = await client.newQuote({
+        fromAssetId: 0,
+        toAssetId: 31566704,
+        amount: 1_000_000,
+        address: validAddress,
+      })
+
+      expect(quote).toBeInstanceOf(DeflexQuote)
+      expect(quote.quote).toBe(5000000n)
+      expect(quote.amount).toBe(1000000n)
+      expect(quote.address).toBe(validAddress)
+      expect(quote.fromAssetId).toBe(0)
+      expect(quote.toAssetId).toBe(31566704)
+      expect(typeof quote.createdAt).toBe('number')
+    })
+
+    it('should handle BigInt values for asset IDs and amounts', async () => {
+      const mockQuoteResponse: Partial<FetchQuoteResponse> = {
+        fromASAID: 0,
+        toASAID: 31566704,
+        quote: '5000000',
+        type: 'fixed-input',
+        route: [],
+        txnPayload: { iv: 'test-iv', data: 'test-data' },
+        requiredAppOptIns: [],
+      }
+
+      mockRequest.mockResolvedValue(mockQuoteResponse)
+
+      const quote = await client.newQuote({
+        fromAssetId: 0n,
+        toAssetId: 31566704n,
+        amount: 1_000_000n,
+      })
+
+      expect(quote).toBeInstanceOf(DeflexQuote)
+      expect(quote.amount).toBe(1000000n)
+    })
+
+    it('should convert API naming to class-based naming', async () => {
+      const mockQuoteResponse: Partial<FetchQuoteResponse> = {
+        fromASAID: 0,
+        toASAID: 31566704,
+        quote: '5000000',
+        type: 'fixed-input',
+        route: [],
+        txnPayload: { iv: 'test-iv', data: 'test-data' },
+        requiredAppOptIns: [],
+      }
+
+      mockRequest.mockResolvedValue(mockQuoteResponse)
+
+      await client.newQuote({
+        fromAssetId: 0,
+        toAssetId: 31566704,
+        amount: 1_000_000,
+      })
+
+      const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+      expect(callUrl).toContain('fromASAID=0')
+      expect(callUrl).toContain('toASAID=31566704')
     })
   })
 
@@ -414,8 +525,8 @@ describe('DeflexClient', () => {
       mockRequest.mockClear()
     })
 
-    it('should create a SwapComposer instance', async () => {
-      const mockQuote: Partial<DeflexQuote> = {
+    it('should create a SwapComposer instance from FetchQuoteResponse', async () => {
+      const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
         toASAID: 31566704,
         quote: '1000000',
@@ -461,7 +572,7 @@ describe('DeflexClient', () => {
       mockRequest.mockResolvedValue(mockSwapResponse)
 
       const composer = await client.newSwap({
-        quote: mockQuote as DeflexQuote,
+        quote: mockQuote as FetchQuoteResponse,
         address: validAddress,
         slippage: 1.0,
       })
@@ -471,6 +582,69 @@ describe('DeflexClient', () => {
       expect(typeof composer.count).toBe('function')
       expect(typeof composer.addTransaction).toBe('function')
       expect(typeof composer.addSwapTransactions).toBe('function')
+    })
+
+    it('should create a SwapComposer instance from DeflexQuote', async () => {
+      const mockQuoteResponse: Partial<FetchQuoteResponse> = {
+        fromASAID: 0,
+        toASAID: 31566704,
+        quote: '1000000',
+        type: 'fixed-input',
+        route: [],
+        txnPayload: { iv: 'test-iv', data: 'test-data' },
+        requiredAppOptIns: [],
+      }
+
+      const validAddress =
+        '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
+
+      const deflexQuote = new DeflexQuote({
+        response: mockQuoteResponse as FetchQuoteResponse,
+        amount: 1_000_000,
+        address: validAddress,
+      })
+
+      const mockTransaction =
+        algosdk.makePaymentTxnWithSuggestedParamsFromObject({
+          sender: validAddress,
+          receiver: validAddress,
+          amount: 1000,
+          suggestedParams: {
+            fee: 1000,
+            firstValid: 1000,
+            lastValid: 2000,
+            genesisID: 'testnet-v1.0',
+            genesisHash: Buffer.from(
+              'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+              'base64',
+            ),
+            minFee: 1000,
+          },
+        })
+
+      const mockSwapResponse: FetchSwapTxnsResponse = {
+        txns: [
+          {
+            data: Buffer.from(
+              algosdk.encodeUnsignedTransaction(mockTransaction),
+            ).toString('base64'),
+            group: '',
+            logicSigBlob: false,
+            signature: false,
+          },
+        ],
+      }
+
+      mockRequest.mockResolvedValue(mockSwapResponse)
+
+      const composer = await client.newSwap({
+        quote: deflexQuote,
+        address: validAddress,
+        slippage: 1.0,
+      })
+
+      expect(composer).toBeDefined()
+      expect(typeof composer.getStatus).toBe('function')
     })
   })
 })

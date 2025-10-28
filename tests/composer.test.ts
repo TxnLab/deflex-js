@@ -2,7 +2,7 @@ import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { SwapComposer, SwapComposerStatus } from '../src/composer'
-import type { DeflexQuote, DeflexTransaction } from '../src/types'
+import type { FetchQuoteResponse, DeflexTransaction } from '../src/types'
 
 // Mock waitForConfirmation
 vi.mock('algosdk', async () => {
@@ -20,7 +20,7 @@ describe('SwapComposer', () => {
   const validAddress =
     '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
-  const createMockQuote = (): Partial<DeflexQuote> => ({
+  const createMockQuote = (): Partial<FetchQuoteResponse> => ({
     fromASAID: 0,
     toASAID: 31566704,
     quote: '1000000',
@@ -102,7 +102,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -137,7 +137,7 @@ describe('SwapComposer', () => {
       expect(
         () =>
           new SwapComposer({
-            quote: createMockQuote() as DeflexQuote,
+            quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: null as any,
             algorand: mockAlgorand,
             address: validAddress,
@@ -149,7 +149,7 @@ describe('SwapComposer', () => {
       expect(
         () =>
           new SwapComposer({
-            quote: createMockQuote() as DeflexQuote,
+            quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: [],
             algorand: mockAlgorand,
             address: validAddress,
@@ -170,7 +170,7 @@ describe('SwapComposer', () => {
       expect(
         () =>
           new SwapComposer({
-            quote: createMockQuote() as DeflexQuote,
+            quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: [mockDeflexTxn],
             algorand: null as any,
             address: validAddress,
@@ -191,7 +191,7 @@ describe('SwapComposer', () => {
       expect(
         () =>
           new SwapComposer({
-            quote: createMockQuote() as DeflexQuote,
+            quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: [mockDeflexTxn],
             algorand: mockAlgorand,
             address: 'invalid-address',
@@ -203,7 +203,7 @@ describe('SwapComposer', () => {
   describe('getStatus', () => {
     it('should return BUILDING status initially', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -216,7 +216,7 @@ describe('SwapComposer', () => {
   describe('count', () => {
     it('should return 0 for empty composer', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -227,7 +227,7 @@ describe('SwapComposer', () => {
 
     it('should return correct count after adding transactions', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -244,7 +244,7 @@ describe('SwapComposer', () => {
   describe('addTransaction', () => {
     it('should add a transaction to the group', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -258,7 +258,7 @@ describe('SwapComposer', () => {
 
     it('should allow chaining', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -274,7 +274,7 @@ describe('SwapComposer', () => {
 
     it('should throw error when not in BUILDING status', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -299,7 +299,7 @@ describe('SwapComposer', () => {
 
     it('should throw error when exceeding max group size', () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -328,7 +328,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -350,7 +350,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -374,7 +374,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -412,7 +412,7 @@ describe('SwapComposer', () => {
       )
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: mockDeflexTxns,
         algorand: mockAlgorand,
         address: validAddress,
@@ -433,13 +433,13 @@ describe('SwapComposer', () => {
         logicSigBlob: false,
       }
 
-      const quote: Partial<DeflexQuote> = {
+      const quote: Partial<FetchQuoteResponse> = {
         ...createMockQuote(),
         requiredAppOptIns: [123456],
       }
 
       const composer = new SwapComposer({
-        quote: quote as DeflexQuote,
+        quote: quote as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -455,7 +455,7 @@ describe('SwapComposer', () => {
   describe('sign', () => {
     it('should sign transactions and return signed blobs', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -488,7 +488,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -508,7 +508,7 @@ describe('SwapComposer', () => {
 
     it('should return cached signed transactions on subsequent calls', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -558,7 +558,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -579,7 +579,7 @@ describe('SwapComposer', () => {
 
     it('should assign group ID to transactions', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -607,7 +607,7 @@ describe('SwapComposer', () => {
   describe('submit', () => {
     it('should submit signed transactions to the network', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -631,7 +631,7 @@ describe('SwapComposer', () => {
 
     it('should throw error when trying to resubmit', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -667,7 +667,7 @@ describe('SwapComposer', () => {
   describe('execute', () => {
     it('should execute the swap and wait for confirmation', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -691,7 +691,7 @@ describe('SwapComposer', () => {
 
     it('should throw error when already committed', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -720,7 +720,7 @@ describe('SwapComposer', () => {
 
     it('should use custom wait rounds parameter', async () => {
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
@@ -757,13 +757,13 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<DeflexQuote> = {
+        const quote: Partial<FetchQuoteResponse> = {
           ...createMockQuote(),
           requiredAppOptIns: [], // No opt-ins required
         }
 
         const composer = new SwapComposer({
-          quote: quote as DeflexQuote,
+          quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -785,7 +785,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<DeflexQuote> = {
+        const quote: Partial<FetchQuoteResponse> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456],
         }
@@ -797,7 +797,7 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as DeflexQuote,
+          quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -819,7 +819,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<DeflexQuote> = {
+        const quote: Partial<FetchQuoteResponse> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456],
         }
@@ -831,7 +831,7 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as DeflexQuote,
+          quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -853,7 +853,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<DeflexQuote> = {
+        const quote: Partial<FetchQuoteResponse> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456, 789012, 345678],
         }
@@ -865,7 +865,7 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as DeflexQuote,
+          quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -887,7 +887,7 @@ describe('SwapComposer', () => {
           logicSigBlob: false,
         }
 
-        const quote: Partial<DeflexQuote> = {
+        const quote: Partial<FetchQuoteResponse> = {
           ...createMockQuote(),
           requiredAppOptIns: [123456],
         }
@@ -899,7 +899,7 @@ describe('SwapComposer', () => {
         })
 
         const composer = new SwapComposer({
-          quote: quote as DeflexQuote,
+          quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -924,7 +924,7 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as DeflexQuote,
+          quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -956,7 +956,7 @@ describe('SwapComposer', () => {
         ]
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as DeflexQuote,
+          quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: mockDeflexTxns,
           algorand: mockAlgorand,
           address: validAddress,
@@ -976,7 +976,7 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as DeflexQuote,
+          quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -991,7 +991,7 @@ describe('SwapComposer', () => {
         expect(
           () =>
             new SwapComposer({
-              quote: createMockQuote() as DeflexQuote,
+              quote: createMockQuote() as FetchQuoteResponse,
               deflexTxns: [],
               algorand: mockAlgorand,
               address: validAddress,
@@ -1025,7 +1025,7 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as DeflexQuote,
+          quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexLsigTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -1063,7 +1063,7 @@ describe('SwapComposer', () => {
         }
 
         const composer = new SwapComposer({
-          quote: createMockQuote() as DeflexQuote,
+          quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexSkTxn],
           algorand: mockAlgorand,
           address: validAddress,
@@ -1096,7 +1096,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
@@ -1138,7 +1138,7 @@ describe('SwapComposer', () => {
       }
 
       const composer = new SwapComposer({
-        quote: createMockQuote() as DeflexQuote,
+        quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,

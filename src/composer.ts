@@ -12,7 +12,7 @@ import {
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
 import type {
-  DeflexQuote,
+  FetchQuoteResponse,
   DeflexTransaction,
   SwapTransaction,
   DeflexSignature,
@@ -56,7 +56,7 @@ export enum SwapComposerStatus {
  */
 export interface SwapComposerConfig {
   /** The quote response from fetchQuote() */
-  readonly quote: DeflexQuote
+  readonly quote: FetchQuoteResponse
   /** The swap transactions from fetchSwapTransactions() */
   readonly deflexTxns: DeflexTransaction[]
   /** AlgorandClient instance for blockchain operations */
@@ -93,7 +93,7 @@ export class SwapComposer {
   private signedTxns: Uint8Array[] = []
   private txIds: string[] = []
 
-  private readonly quote: DeflexQuote
+  private readonly quote: FetchQuoteResponse
   private readonly deflexTxns: DeflexTransaction[]
   private readonly algorand: AlgorandClient
   private readonly address: string

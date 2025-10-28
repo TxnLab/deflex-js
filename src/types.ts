@@ -45,9 +45,41 @@ export type DeflexConfig = Omit<
 export type QuoteType = 'fixed-input' | 'fixed-output'
 
 /**
- * Parameters for requesting a swap quote from the Deflex API
+ * Parameters for requesting a swap quote from the Deflex API (raw API method)
  */
 export interface FetchQuoteParams {
+  /** Input asset ID */
+  readonly fromASAID: bigint | number
+
+  /** Output asset ID */
+  readonly toASAID: bigint | number
+
+  /** Amount to swap (in base units) */
+  readonly amount: bigint | number
+
+  /** Quote type (default: 'fixed-input') */
+  readonly type?: QuoteType
+
+  /** Protocols to exclude from routing (default: []) */
+  readonly disabledProtocols?: readonly Protocol[]
+
+  /** Maximum transaction group size (default: 16) */
+  readonly maxGroupSize?: number
+
+  /** Maximum depth of the route (default: 4) */
+  readonly maxDepth?: number
+
+  /** Whether to include asset opt-in transaction (overrides config.autoOptIn if set) */
+  readonly optIn?: boolean
+
+  /** Address of the account that will perform the swap (required if autoOptIn is enabled) */
+  readonly address?: string
+}
+
+/**
+ * Parameters for requesting a swap quote (class-based method)
+ */
+export interface QuoteParams {
   /** Input asset ID */
   readonly fromAssetId: bigint | number
 
@@ -153,7 +185,7 @@ export interface TxnPayload {
 /**
  * Quote response from the Deflex API
  */
-export interface DeflexQuote {
+export interface FetchQuoteResponse {
   /** The quoted output amount or input amount (depending on quote type) */
   readonly quote: string | number
   /** Profit information for the swap */
@@ -219,7 +251,7 @@ export interface DeflexTransaction {
  */
 export interface FetchSwapTxnsParams {
   /** Quote response from fetchQuote() */
-  readonly quote: DeflexQuote
+  readonly quote: FetchQuoteResponse
 
   /** Algorand address that will sign the transactions */
   readonly address: string

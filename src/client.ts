@@ -13,15 +13,17 @@ import {
   DEPRECATED_PROTOCOLS,
   MAX_FEE_BPS,
 } from './constants'
+import { DeflexQuote } from './quote'
 import { request } from './utils'
 import type {
-  DeflexQuote,
+  FetchQuoteResponse,
   FetchSwapTxnsResponse,
   DeflexConfig,
   DeflexConfigParams,
   FetchSwapTxnsParams,
   FetchSwapTxnsBody,
   FetchQuoteParams,
+  QuoteParams,
 } from './types'
 
 /**
@@ -99,8 +101,8 @@ export class DeflexClient {
    * information, price impact, required opt-ins, and an encrypted transaction payload.
    *
    * @param params - Parameters for the quote request
-   * @param params.fromAssetId - The ID of the asset to swap from
-   * @param params.toAssetId - The ID of the asset to swap to
+   * @param params.fromASAID - The ID of the asset to swap from
+   * @param params.toASAID - The ID of the asset to swap to
    * @param params.amount - The amount of the asset to swap in base units
    * @param params.type - The type of the quote (default: 'fixed-input')
    * @param params.disabledProtocols - List of protocols to disable (default: [])
@@ -111,22 +113,22 @@ export class DeflexClient {
    *   - If true: API reduces maxGroupSize by 1 and includes opt-in (always included, even if not needed)
    *   - If false: No opt-in transaction included
    *   - If undefined: Falls back to `config.autoOptIn` behavior with account check (if `params.address` is provided)
-   * @returns A DeflexQuote object with routing information
+   * @returns A FetchQuoteResponse object with routing information
    *
    * @example
    * ```typescript
    * const quote = await deflex.fetchQuote({
    *   address: 'ABC...',
-   *   fromAssetId: 0,           // ALGO
-   *   toAssetId: 31566704,      // USDC
-   *   amount: 1_000_000,        // 1 ALGO
+   *   fromASAID: 0,           // ALGO
+   *   toASAID: 31566704,      // USDC
+   *   amount: 1_000_000,      // 1 ALGO
    * })
    * ```
    */
-  async fetchQuote(params: FetchQuoteParams): Promise<DeflexQuote> {
+  async fetchQuote(params: FetchQuoteParams): Promise<FetchQuoteResponse> {
     const {
-      fromAssetId,
-      toAssetId,
+      fromASAID,
+      toASAID,
       amount,
       type = 'fixed-input',
       disabledProtocols = [],
@@ -146,7 +148,7 @@ export class DeflexClient {
       if (address) {
         includeOptIn = await this.needsAssetOptIn(
           this.validateAddress(address),
-          toAssetId,
+          toASAID,
         )
       } else {
         console.warn(
@@ -162,8 +164,8 @@ export class DeflexClient {
     url.searchParams.append('algodToken', this.config.algodToken)
     url.searchParams.append('algodPort', String(this.config.algodPort))
     url.searchParams.append('feeBps', this.config.feeBps.toString())
-    url.searchParams.append('fromASAID', BigInt(fromAssetId).toString())
-    url.searchParams.append('toASAID', BigInt(toAssetId).toString())
+    url.searchParams.append('fromASAID', BigInt(fromASAID).toString())
+    url.searchParams.append('toASAID', BigInt(toASAID).toString())
     url.searchParams.append('amount', BigInt(amount).toString())
     url.searchParams.append('type', type)
     url.searchParams.append('disabledProtocols', allDisabledProtocols.join(','))
@@ -175,7 +177,7 @@ export class DeflexClient {
       url.searchParams.append('referrerAddress', this.config.referrerAddress)
     }
 
-    return request<DeflexQuote>(url.toString())
+    return request<FetchQuoteResponse>(url.toString())
   }
 
   /**
@@ -260,13 +262,78 @@ export class DeflexClient {
   }
 
   /**
+   * Fetch a quote and return a DeflexQuote wrapper instance
+   *
+   * This is the recommended way to fetch quotes. It wraps the raw API response
+   * in a DeflexQuote class that provides convenient methods for accessing quote data.
+   *
+   * @param params - Parameters for the quote request
+   * @param params.fromAssetId - The ID of the asset to swap from
+   * @param params.toAssetId - The ID of the asset to swap to
+   * @param params.amount - The amount of the asset to swap in base units
+   * @param params.type - The type of the quote (default: 'fixed-input')
+   * @param params.disabledProtocols - List of protocols to disable (default: [])
+   * @param params.maxGroupSize - The maximum group size (default: 16)
+   * @param params.maxDepth - The maximum depth (default: 4)
+   * @param params.address - The address of the account that will perform the swap (recommended when using `config.autoOptIn` or `params.optIn`)
+   * @param params.optIn - Whether to include asset opt-in transaction
+   * @returns A DeflexQuote instance with convenience methods
+   *
+   * @example
+   * ```typescript
+   * const quote = await deflex.newQuote({
+   *   address: 'ABC...',
+   *   fromAssetId: 0,
+   *   toAssetId: 31566704,
+   *   amount: 1_000_000,
+   * })
+   *
+   * // Access quote data
+   * console.log(quote.quote)                 // bigint (quoted amount)
+   * console.log(quote.fromAssetId)           // number
+   * console.log(quote.toAssetId)             // number
+   *
+   * // Access metadata
+   * console.log(quote.amount)                // bigint (original request amount)
+   * console.log(quote.address)               // string | undefined
+   * console.log(quote.createdAt)             // number
+   *
+   * // Use convenience methods
+   * const minReceivedAmount = quote.getSlippageAmount(slippage) // fixed-input swap
+   * const maxSentAmount = quote.getSlippageAmount(slippage) // fixed-output swap
+   * ```
+   */
+  async newQuote(params: QuoteParams): Promise<DeflexQuote> {
+    const response = await this.fetchQuote({
+      fromASAID: params.fromAssetId,
+      toASAID: params.toAssetId,
+      amount: params.amount,
+      type: params.type,
+      disabledProtocols: params.disabledProtocols,
+      maxGroupSize: params.maxGroupSize,
+      maxDepth: params.maxDepth,
+      optIn: params.optIn,
+      address: params.address,
+    })
+
+    // Create the quote wrapper
+    const quote = new DeflexQuote({
+      response,
+      amount: params.amount,
+      address: params.address,
+    })
+
+    return quote
+  }
+
+  /**
    * Create a SwapComposer instance
    *
    * This factory method creates a composer that allows you to add custom transactions
    * before and after the swap transactions, with automatic handling of pre-signed transactions
    * and opt-ins.
    *
-   * @param config.quote - The quote response from fetchQuote()
+   * @param config.quote - The quote response from fetchQuote() or a DeflexQuote instance
    * @param config.address - The address of the signer
    * @param config.slippage - The slippage tolerance
    * @returns A SwapComposer instance ready for building transaction groups
@@ -274,7 +341,7 @@ export class DeflexClient {
    * @example
    * ```typescript
    * // Basic swap
-   * const quote = await deflex.fetchQuote({ ... })
+   * const quote = await deflex.newQuote({ ... })
    * await deflex.newSwap({ quote, slippage, address })
    *   .execute(signer)
    * ```
@@ -282,7 +349,7 @@ export class DeflexClient {
    * @example
    * ```typescript
    * // Advanced swap with custom transactions
-   * const quote = await deflex.fetchQuote({ ... })
+   * const quote = await deflex.newQuote({ ... })
    * const swap = await deflex.newSwap({
    *   quote,
    *   slippage,
@@ -306,21 +373,23 @@ export class DeflexClient {
    * ```
    */
   async newSwap(config: {
-    quote: DeflexQuote
+    quote: DeflexQuote | FetchQuoteResponse
     address: string
     slippage: number
   }): Promise<SwapComposer> {
     const { quote, address, slippage } = config
 
+    const quoteResponse = quote instanceof DeflexQuote ? quote.response : quote
+
     const swapResponse = await this.fetchSwapTransactions({
-      quote,
+      quote: quoteResponse,
       address,
       slippage,
     })
 
     // Create the composer
     const composer = new SwapComposer({
-      quote,
+      quote: quoteResponse,
       deflexTxns: swapResponse.txns,
       algorand: this.algorand,
       address,
