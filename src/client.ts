@@ -1,6 +1,6 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import { isValidAddress } from 'algosdk'
-import { SwapComposer } from './composer'
+import { SwapComposer, type SignerFunction } from './composer'
 import {
   DEFAULT_ALGOD_PORT,
   DEFAULT_ALGOD_TOKEN,
@@ -336,14 +336,15 @@ export class DeflexClient {
    * @param config.quote - The quote response from fetchQuote() or a DeflexQuote instance
    * @param config.address - The address of the signer
    * @param config.slippage - The slippage tolerance
+   * @param config.signer - Transaction signer function
    * @returns A SwapComposer instance ready for building transaction groups
    *
    * @example
    * ```typescript
    * // Basic swap
    * const quote = await deflex.newQuote({ ... })
-   * await deflex.newSwap({ quote, slippage, address })
-   *   .execute(signer)
+   * await deflex.newSwap({ quote, address, slippage, signer })
+   *   .execute()
    * ```
    *
    * @example
@@ -352,8 +353,9 @@ export class DeflexClient {
    * const quote = await deflex.newQuote({ ... })
    * const swap = await deflex.newSwap({
    *   quote,
-   *   slippage,
    *   address,
+   *   slippage,
+   *   signer,
    * })
    *
    * console.log(swap.getStatus()) // BUILDING
@@ -362,11 +364,11 @@ export class DeflexClient {
    *   .addTransaction(beforeTxn)
    *   .addSwapTransactions() // Adds swap transactions to the group
    *   .addTransaction(afterTxn)
-   *   .sign(signer) // algosdk.TransactionSigner or (txns) => Promise<Uint8Array[]>
+   *   .sign()
    *
    * console.log(swap.getStatus()) // SIGNED
    *
-   * const result = await swap.execute(signer, waitRounds)
+   * const result = await swap.execute(waitRounds)
    * console.log(result.confirmedRound, result.txIds)
    *
    * console.log(swap.getStatus()) // COMMITTED
@@ -376,8 +378,9 @@ export class DeflexClient {
     quote: DeflexQuote | FetchQuoteResponse
     address: string
     slippage: number
+    signer: SignerFunction
   }): Promise<SwapComposer> {
-    const { quote, address, slippage } = config
+    const { quote, address, slippage, signer } = config
 
     const quoteResponse = quote instanceof DeflexQuote ? quote.response : quote
 
@@ -393,6 +396,7 @@ export class DeflexClient {
       deflexTxns: swapResponse.txns,
       algorand: this.algorand,
       address,
+      signer,
     })
 
     return composer

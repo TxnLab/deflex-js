@@ -29,7 +29,7 @@ import type { TransactionSigner } from 'algosdk'
  */
 export type SignerFunction =
   | TransactionSigner
-  | ((txnGroup: Transaction[]) => Promise<Uint8Array[]>)
+  | ((txns: Transaction[]) => Promise<Uint8Array[]>)
 
 /**
  * Status of the SwapComposer transaction group lifecycle
@@ -63,6 +63,8 @@ export interface SwapComposerConfig {
   readonly algorand: AlgorandClient
   /** The address of the account that will sign transactions */
   readonly address: string
+  /** Transaction signer function */
+  readonly signer: SignerFunction
 }
 
 /**
@@ -97,6 +99,7 @@ export class SwapComposer {
   private readonly deflexTxns: DeflexTransaction[]
   private readonly algorand: AlgorandClient
   private readonly address: string
+  private readonly signer: TransactionSigner | SignerFunction
 
   /**
    * Create a new SwapComposer instance
@@ -109,6 +112,7 @@ export class SwapComposer {
    * @param config.deflexTxns - The swap transactions from fetchSwapTransactions()
    * @param config.algorand - AlgorandClient instance for blockchain operations
    * @param config.address - The address of the account that will sign transactions
+   * @param config.signer - Transaction signer function
    */
   constructor(config: SwapComposerConfig) {
     // Validate required parameters
@@ -124,11 +128,15 @@ export class SwapComposer {
     if (!config.algorand) {
       throw new Error('AlgorandClient instance is required')
     }
+    if (!config.signer) {
+      throw new Error('Signer is required')
+    }
 
     this.quote = config.quote
     this.deflexTxns = config.deflexTxns
     this.algorand = config.algorand
     this.address = this.validateAddress(config.address)
+    this.signer = config.signer
   }
 
   /**
@@ -223,23 +231,16 @@ export class SwapComposer {
    * Sign the transaction group
    *
    * Automatically adds swap transactions if not already added, builds the atomic group,
-   * and signs all transactions.
+   * and signs all transactions using the configured signer.
    *
-   * @param signer - Transaction signer function. Can be either:
-   *   - A algosdk.TransactionSigner: (txnGroup, indexesToSign) => Promise<Uint8Array[]>
-   *   - An inline function: (txnGroup) => Promise<Uint8Array[]>
    * @returns A promise that resolves to an array of signed transaction blobs
    *
    * @example
    * ```typescript
-   * // Using a TransactionSigner
-   * const signedTxns = await composer.sign(transactionSigner)
-   *
-   * // Using an inline function
-   * const signedTxns = await composer.sign((txns) => signTransactions(txns))
+   * const signedTxns = await composer.sign()
    * ```
    */
-  async sign(signer: SignerFunction): Promise<Uint8Array[]> {
+  async sign(): Promise<Uint8Array[]> {
     if (this.status >= SwapComposerStatus.SIGNED) {
       return this.signedTxns
     }
@@ -278,7 +279,7 @@ export class SwapComposer {
     // Sign user transactions
     let userSignedTxns: Uint8Array[] = []
     if (userTransactions.length > 0) {
-      userSignedTxns = await (signer as TransactionSigner)(
+      userSignedTxns = await (this.signer as TransactionSigner)(
         userTransactions,
         userTransactionIndexes,
       )
@@ -320,24 +321,21 @@ export class SwapComposer {
    * This method signs the transaction group (if not already signed) and submits
    * it to the Algorand network. Does not wait for confirmation.
    *
-   * @param signer - Transaction signer function. Can be either:
-   *   - A algosdk.TransactionSigner: (txnGroup, indexesToSign) => Promise<Uint8Array[]>
-   *   - An inline function: (txnGroup) => Promise<Uint8Array[]>
    * @returns The transaction IDs
    * @throws Error if the transaction group has already been submitted
    *
    * @example
    * ```typescript
-   * const txIds = await composer.submit(signer)
+   * const txIds = await composer.submit()
    * console.log('Submitted transactions:', txIds)
    * ```
    */
-  async submit(signer: SignerFunction): Promise<string[]> {
+  async submit(): Promise<string[]> {
     if (this.status > SwapComposerStatus.SUBMITTED) {
       throw new Error('Transaction group cannot be resubmitted')
     }
 
-    const stxns = await this.sign(signer)
+    const stxns = await this.sign()
     await this.algorand.client.algod.sendRawTransaction(stxns).do()
 
     this.status = SwapComposerStatus.SUBMITTED
@@ -351,24 +349,18 @@ export class SwapComposer {
    * This is the primary method for executing swaps and combines sign(), submit(), and
    * waitForConfirmation() into a single call.
    *
-   * @param signer - Transaction signer function. Can be either:
-   *   - A algosdk.TransactionSigner: (txnGroup, indexesToSign) => Promise<Uint8Array[]>
-   *   - An inline function: (txnGroup) => Promise<Uint8Array[]>
    * @param waitRounds - The number of rounds to wait for confirmation (default: 4)
    * @returns Object containing the confirmed round and transaction IDs
    * @throws Error if the transaction group has already been committed
    *
    * @example
    * ```typescript
-   * const result = await composer.execute(signer)
+   * const result = await composer.execute()
    * console.log(`Confirmed in round ${result.confirmedRound}`)
    * console.log('Transaction IDs:', result.txIds)
    * ```
    */
-  async execute(
-    signer: SignerFunction,
-    waitRounds: number = DEFAULT_CONFIRMATION_ROUNDS,
-  ): Promise<{
+  async execute(waitRounds: number = DEFAULT_CONFIRMATION_ROUNDS): Promise<{
     confirmedRound: bigint
     txIds: string[]
   }> {
@@ -378,7 +370,7 @@ export class SwapComposer {
       )
     }
 
-    const txIds = await this.submit(signer)
+    const txIds = await this.submit()
 
     const confirmedTxnInfo = await waitForConfirmation(
       this.algorand.client.algod,

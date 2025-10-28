@@ -24,18 +24,19 @@ const deflex = new DeflexClient({
 // Get a quote
 const quote = await deflex.newQuote({
   address: activeAddress,
-  fromAssetId: 0,      // ALGO
+  fromAssetId: 0, // ALGO
   toAssetId: 31566704, // USDC
-  amount: 1_000_000,   // 1 ALGO (in microAlgos)
+  amount: 1_000_000, // 1 ALGO (in microAlgos)
 })
 
 // Execute the swap
 const swap = await deflex.newSwap({
   quote,
   address: activeAddress,
+  signer: transactionSigner,
   slippage: 1, // 1% slippage tolerance
 })
-const result = await swap.execute(transactionSigner)
+const result = await swap.execute()
 
 console.log(`Swap completed in round ${result.confirmedRound}`)
 ```
@@ -59,8 +60,8 @@ const deflex = new DeflexClient({
   algodToken: '',
   algodPort: 443,
   referrerAddress: '<referrer_address>', // Earns 25% of swap fees
-  feeBps: 15,                            // 0.15% fee (max: 300 = 3%)
-  autoOptIn: true,                       // Automatically handle asset opt-ins
+  feeBps: 15, // 0.15% fee (max: 300 = 3%)
+  autoOptIn: true, // Automatically handle asset opt-ins
 })
 ```
 
@@ -71,9 +72,9 @@ The [`newQuote()`](#deflexclientnewquote) method returns a [`DeflexQuote`](#defl
 ```typescript
 // Basic quote
 const quote = await deflex.newQuote({
-  fromAssetId: 0,       // ALGO
-  toAssetId: 31566704,  // USDC
-  amount: 1_000_000,    // 1 ALGO
+  fromAssetId: 0, // ALGO
+  toAssetId: 31566704, // USDC
+  amount: 1_000_000, // 1 ALGO
   address: userAddress, // Required for auto opt-in detection
 })
 ```
@@ -90,9 +91,10 @@ const { activeAddress, transactionSigner } = useWallet()
 const swap = await deflex.newSwap({
   quote,
   address: activeAddress,
+  signer: transactionSigner,
   slippage: 1, // 1% slippage tolerance
 })
-const result = await swap.execute(transactionSigner)
+const result = await swap.execute()
 
 console.log(`Confirmed in round ${result.confirmedRound}`)
 console.log('Transaction IDs:', result.txIds)
@@ -100,7 +102,7 @@ console.log('Transaction IDs:', result.txIds)
 
 ### Transaction Signing
 
-The SDK supports two types of transaction signers for the `sign()`, `submit()`, and `execute()` methods:
+The SDK supports two types of transaction signers that must be passed to `newSwap()`:
 
 #### 1. use-wallet Signer (Recommended)
 
@@ -111,7 +113,13 @@ import { useWallet } from '@txnlab/use-wallet-*' // react, vue, solid, or svelte
 
 const { activeAddress, transactionSigner } = useWallet()
 
-await swap.execute(transactionSigner)
+const swap = await deflex.newSwap({
+  quote,
+  address: activeAddress,
+  signer: transactionSigner,
+  slippage: 1,
+})
+await swap.execute()
 ```
 
 > **Tip**: The [`@txnlab/use-wallet`](https://github.com/TxnLab/use-wallet) library supports multiple wallet providers (Pera, Defly, Lute, WalletConnect, etc.) and provides a unified interface. Choose the framework-specific adapter for your project: `@txnlab/use-wallet-react`, `@txnlab/use-wallet-vue`, `@txnlab/use-wallet-solid`, or `@txnlab/use-wallet-svelte`.
@@ -120,16 +128,22 @@ await swap.execute(transactionSigner)
 
 ```typescript
 // Custom signer function signature:
-// (txnGroup: Transaction[]) => Promise<Uint8Array[]>
+// (txns: Transaction[]) => Promise<Uint8Array[]>
 
-const customSigner = async (txnGroup) => {
+const customSigner = async (txns) => {
   // Your custom signing logic here
-  const signedTxns = await yourWalletProvider.signTransactions(txnGroup)
+  const signedTxns = await yourWalletProvider.signTransactions(txns)
 
   return signedTxns
 }
 
-await swap.execute(customSigner)
+const swap = await deflex.newSwap({
+  quote,
+  address: activeAddress,
+  signer: customSigner,
+  slippage: 1,
+})
+await swap.execute()
 ```
 
 > **Note**: The custom signer function must return an array of `Uint8Array` where each element is a signed transaction.
@@ -152,6 +166,7 @@ const customTxn2 = new Transaction({...})
 const swap = await deflex.newSwap({
   quote,
   address: activeAddress,
+  signer: transactionSigner,
   slippage: 1,
 })
 
@@ -159,7 +174,7 @@ const result = await swap
   .addTransaction(customTxn1)     // Add transaction before swap
   .addSwapTransactions()          // Add swap transactions
   .addTransaction(customTxn2)     // Add transaction after swap
-  .execute(transactionSigner)     // Sign and execute entire group
+  .execute()                      // Sign and execute entire group
 ```
 
 ### Manual Asset Opt-In Detection
@@ -202,9 +217,10 @@ try {
   const swap = await deflex.newSwap({
     quote,
     address: activeAddress,
+    signer: transactionSigner,
     slippage: 1,
   })
-  const result = await swap.execute(transactionSigner)
+  const result = await swap.execute()
 
   console.log('Swap successful:', result)
 } catch (error) {
@@ -262,11 +278,12 @@ Returns a [`SwapComposer`](#swapcomposer) instance for building and executing sw
 async newSwap(config: SwapComposerConfig): Promise<SwapComposer>
 ```
 
-| Parameter  | Description                                       | Type                                |
-| ---------- | ------------------------------------------------- | ----------------------------------- |
-| `quote`    | Quote instance or response object                 | `DeflexQuote \| FetchQuoteResponse` |
-| `address`  | Signer address                                    | `string`                            |
-| `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                            |
+| Parameter  | Description                                       | Type                                                                                    |
+| ---------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| `quote`    | Quote instance or response object                 | `DeflexQuote \| FetchQuoteResponse`                                                     |
+| `address`  | Signer address                                    | `string`                                                                                |
+| `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                                                                                |
+| `signer`   | Transaction signer function                       | `algosdk.TransactionSigner \| ((txns: algosdk.Transaction[]) => Promise<Uint8Array[]>)` |
 
 #### DeflexClient.needsAssetOptIn()
 
@@ -324,6 +341,7 @@ getSlippageAmount(slippage: number): bigint
 | `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number` |
 
 **Example:**
+
 ```typescript
 const quote = await deflex.newQuote({
   fromAssetId: 0,
@@ -341,15 +359,15 @@ console.log(`Minimum you'll receive: ${minOutput}`)
 
 Builder for constructing and executing atomic swap transaction groups, returned by [`newSwap()`](#deflexclientnewswap).
 
-| Method                         | Description                                                                    | Parameters                                            | Returns                               |
-| ------------------------------ | ------------------------------------------------------------------------------ | ----------------------------------------------------- | ------------------------------------- |
-| `addTransaction(transaction)`  | Add a transaction to the atomic group                                          | `transaction: Transaction`                            | `SwapComposer`                        |
-| `addSwapTransactions()`        | Add swap transactions to the group (includes required app opt-ins)             | None                                                  | `Promise<SwapComposer>`               |
-| `sign(signer)`                 | Sign the transaction group                                                     | `signer: TransactionSigner`                           | `Promise<Uint8Array[]>`               |
-| `submit(signer)`               | Sign and submit the transaction group                                          | `signer: TransactionSigner`                           | `Promise<string[]>`                   |
-| `execute(signer, waitRounds?)` | Sign, submit, and wait for confirmation                                        | `signer: TransactionSigner`<br/>`waitRounds?: number` | `Promise<PendingTransactionResponse>` |
-| `getStatus()`                  | Get current status: `BUILDING`, `BUILT`, `SIGNED`, `SUBMITTED`, or `COMMITTED` | None                                                  | `ComposerStatus`                      |
-| `count()`                      | Get the number of transactions in the group                                    | None                                                  | `number`                              |
+| Method                        | Description                                                                    | Parameters                         | Returns                               |
+| ----------------------------- | ------------------------------------------------------------------------------ | ---------------------------------- | ------------------------------------- |
+| `addTransaction(transaction)` | Add a transaction to the atomic group                                          | `transaction: algosdk.Transaction` | `SwapComposer`                        |
+| `addSwapTransactions()`       | Add swap transactions to the group (includes required app opt-ins)             | None                               | `Promise<SwapComposer>`               |
+| `sign()`                      | Sign the transaction group                                                     | None                               | `Promise<Uint8Array[]>`               |
+| `submit()`                    | Sign and submit the transaction group                                          | None                               | `Promise<string[]>`                   |
+| `execute(waitRounds?)`        | Sign, submit, and wait for confirmation                                        | `waitRounds?: number` (default: 4) | `Promise<PendingTransactionResponse>` |
+| `getStatus()`                 | Get current status: `BUILDING`, `BUILT`, `SIGNED`, `SUBMITTED`, or `COMMITTED` | None                               | `ComposerStatus`                      |
+| `count()`                     | Get the number of transactions in the group                                    | None                               | `number`                              |
 
 ## Documentation
 

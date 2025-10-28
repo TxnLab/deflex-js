@@ -106,6 +106,8 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       expect(composer).toBeInstanceOf(SwapComposer)
@@ -129,6 +131,8 @@ describe('SwapComposer', () => {
             deflexTxns: [mockDeflexTxn],
             algorand: mockAlgorand,
             address: validAddress,
+            signer: async (txns: algosdk.Transaction[]) =>
+              txns.map(() => new Uint8Array(0)),
           }),
       ).toThrow('Quote is required')
     })
@@ -141,6 +145,8 @@ describe('SwapComposer', () => {
             deflexTxns: null as any,
             algorand: mockAlgorand,
             address: validAddress,
+            signer: async (txns: algosdk.Transaction[]) =>
+              txns.map(() => new Uint8Array(0)),
           }),
       ).toThrow('Swap transactions are required')
     })
@@ -153,6 +159,8 @@ describe('SwapComposer', () => {
             deflexTxns: [],
             algorand: mockAlgorand,
             address: validAddress,
+            signer: async (txns: algosdk.Transaction[]) =>
+              txns.map(() => new Uint8Array(0)),
           }),
       ).toThrow('Swap transactions array cannot be empty')
     })
@@ -174,6 +182,8 @@ describe('SwapComposer', () => {
             deflexTxns: [mockDeflexTxn],
             algorand: null as any,
             address: validAddress,
+            signer: async (txns: algosdk.Transaction[]) =>
+              txns.map(() => new Uint8Array(0)),
           }),
       ).toThrow('AlgorandClient instance is required')
     })
@@ -195,6 +205,8 @@ describe('SwapComposer', () => {
             deflexTxns: [mockDeflexTxn],
             algorand: mockAlgorand,
             address: 'invalid-address',
+            signer: async (txns: algosdk.Transaction[]) =>
+              txns.map(() => new Uint8Array(0)),
           }),
       ).toThrow('Invalid Algorand address')
     })
@@ -207,6 +219,8 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.BUILDING)
@@ -220,6 +234,8 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       expect(composer.count()).toBe(0)
@@ -231,6 +247,8 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       composer.addTransaction(createMockTransaction())
@@ -248,6 +266,8 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       const txn = createMockTransaction()
@@ -262,6 +282,8 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       const result = composer
@@ -278,17 +300,14 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       composer.addTransaction(createMockTransaction())
 
       // Sign to change status
-      await composer.sign(async (txns: algosdk.Transaction[]) => {
-        return txns.map((txn) => {
-          const sk = algosdk.generateAccount().sk
-          return algosdk.signTransaction(txn, sk).blob
-        })
-      })
+      await composer.sign()
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.SIGNED)
 
@@ -303,6 +322,8 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       // Add 16 transactions (max group size)
@@ -332,6 +353,8 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       await composer.addSwapTransactions()
@@ -354,6 +377,8 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       await composer.addSwapTransactions()
@@ -378,6 +403,8 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       composer.addTransaction(createMockTransaction())
@@ -386,12 +413,7 @@ describe('SwapComposer', () => {
       await composer.addSwapTransactions()
 
       // Sign to change status
-      await composer.sign(async (txns: algosdk.Transaction[]) => {
-        return txns.map((txn) => {
-          const sk = algosdk.generateAccount().sk
-          return algosdk.signTransaction(txn, sk).blob
-        })
-      })
+      await composer.sign()
 
       await expect(composer.addSwapTransactions()).rejects.toThrow(
         'Swap transactions have already been added',
@@ -416,6 +438,8 @@ describe('SwapComposer', () => {
         deflexTxns: mockDeflexTxns,
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       await expect(composer.addSwapTransactions()).rejects.toThrow(
@@ -443,6 +467,8 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       await composer.addSwapTransactions()
@@ -459,18 +485,17 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      const signedTxns = await composer.sign(
-        async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
             const sk = algosdk.generateAccount().sk
             return algosdk.signTransaction(txn, sk).blob
           })
         },
-      )
+      })
+
+      composer.addTransaction(createMockTransaction())
+
+      const signedTxns = await composer.sign()
 
       expect(signedTxns).toHaveLength(2) // 1 user txn + 1 from deflexTxns
       expect(signedTxns?.[0]).toBeInstanceOf(Uint8Array)
@@ -492,16 +517,17 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) => {
+          return txns.map((txn) => {
+            const sk = algosdk.generateAccount().sk
+            return algosdk.signTransaction(txn, sk).blob
+          })
+        },
       })
 
       expect(composer.count()).toBe(0)
 
-      await composer.sign(async (txns: algosdk.Transaction[]) => {
-        return txns.map((txn) => {
-          const sk = algosdk.generateAccount().sk
-          return algosdk.signTransaction(txn, sk).blob
-        })
-      })
+      await composer.sign()
 
       expect(composer.count()).toBeGreaterThan(0)
     })
@@ -512,24 +538,19 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      const signedTxns1 = await composer.sign(
-        async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
             const sk = algosdk.generateAccount().sk
             return algosdk.signTransaction(txn, sk).blob
           })
         },
-      )
+      })
 
-      const signedTxns2 = await composer.sign(
-        async (_txns: algosdk.Transaction[]) => {
-          throw new Error('Should not be called')
-        },
-      )
+      composer.addTransaction(createMockTransaction())
+
+      const signedTxns1 = await composer.sign()
+
+      const signedTxns2 = await composer.sign()
 
       expect(signedTxns2).toBe(signedTxns1)
     })
@@ -562,17 +583,16 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      await composer.addSwapTransactions()
-
-      const signedTxns = await composer.sign(
-        async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           // Should not receive pre-signed transactions
           expect(txns.length).toBe(0)
           return []
         },
-      )
+      })
+
+      await composer.addSwapTransactions()
+
+      const signedTxns = await composer.sign()
 
       expect(signedTxns.length).toBeGreaterThan(0)
     })
@@ -583,6 +603,17 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) => {
+          // Verify group IDs are assigned
+          expect(txns?.[0]?.group).toBeDefined()
+          expect(txns?.[1]?.group).toBeDefined()
+          expect(txns?.[0]?.group).toEqual(txns?.[1]?.group)
+
+          return txns.map((txn) => {
+            const sk = algosdk.generateAccount().sk
+            return algosdk.signTransaction(txn, sk).blob
+          })
+        },
       })
 
       const txn1 = createMockTransaction()
@@ -590,17 +621,7 @@ describe('SwapComposer', () => {
 
       composer.addTransaction(txn1).addTransaction(txn2)
 
-      await composer.sign(async (txns: algosdk.Transaction[]) => {
-        // Verify group IDs are assigned
-        expect(txns?.[0]?.group).toBeDefined()
-        expect(txns?.[1]?.group).toBeDefined()
-        expect(txns?.[0]?.group).toEqual(txns?.[1]?.group)
-
-        return txns.map((txn) => {
-          const sk = algosdk.generateAccount().sk
-          return algosdk.signTransaction(txn, sk).blob
-        })
-      })
+      await composer.sign()
     })
   })
 
@@ -611,18 +632,17 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      const txIds = await composer.submit(
-        async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
             const sk = algosdk.generateAccount().sk
             return algosdk.signTransaction(txn, sk).blob
           })
         },
-      )
+      })
+
+      composer.addTransaction(createMockTransaction())
+
+      const txIds = await composer.submit()
 
       expect(txIds).toHaveLength(2) // 1 user txn + 1 from deflexTxns
       expect(composer.getStatus()).toBe(SwapComposerStatus.SUBMITTED)
@@ -635,32 +655,23 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      await composer.submit(async (txns: algosdk.Transaction[]) => {
-        return txns.map((txn) => {
-          const sk = algosdk.generateAccount().sk
-          return algosdk.signTransaction(txn, sk).blob
-        })
-      })
-
-      await composer.execute(async (txns: algosdk.Transaction[]) => {
-        return txns.map((txn) => {
-          const sk = algosdk.generateAccount().sk
-          return algosdk.signTransaction(txn, sk).blob
-        })
-      })
-
-      await expect(
-        composer.submit(async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
             const sk = algosdk.generateAccount().sk
             return algosdk.signTransaction(txn, sk).blob
           })
-        }),
-      ).rejects.toThrow('Transaction group cannot be resubmitted')
+        },
+      })
+
+      composer.addTransaction(createMockTransaction())
+
+      await composer.submit()
+
+      await composer.execute()
+
+      await expect(composer.submit()).rejects.toThrow(
+        'Transaction group cannot be resubmitted',
+      )
     })
   })
 
@@ -671,18 +682,17 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      const result = await composer.execute(
-        async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
             const sk = algosdk.generateAccount().sk
             return algosdk.signTransaction(txn, sk).blob
           })
         },
-      )
+      })
+
+      composer.addTransaction(createMockTransaction())
+
+      const result = await composer.execute()
 
       expect(result.confirmedRound).toBe(1234n)
       expect(result.txIds).toHaveLength(2) // 1 user txn + 1 from deflexTxns
@@ -695,25 +705,19 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      await composer.execute(async (txns: algosdk.Transaction[]) => {
-        return txns.map((txn) => {
-          const sk = algosdk.generateAccount().sk
-          return algosdk.signTransaction(txn, sk).blob
-        })
-      })
-
-      await expect(
-        composer.execute(async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
             const sk = algosdk.generateAccount().sk
             return algosdk.signTransaction(txn, sk).blob
           })
-        }),
-      ).rejects.toThrow(
+        },
+      })
+
+      composer.addTransaction(createMockTransaction())
+
+      await composer.execute()
+
+      await expect(composer.execute()).rejects.toThrow(
         'Transaction group has already been executed successfully',
       )
     })
@@ -724,19 +728,17 @@ describe('SwapComposer', () => {
         deflexTxns: [createMockDeflexTxn()],
         algorand: mockAlgorand,
         address: validAddress,
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      const result = await composer.execute(
-        async (txns: algosdk.Transaction[]) => {
+        signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
             const sk = algosdk.generateAccount().sk
             return algosdk.signTransaction(txn, sk).blob
           })
         },
-        10,
-      )
+      })
+
+      composer.addTransaction(createMockTransaction())
+
+      const result = await composer.execute(10)
 
       // Verify execution completed successfully
       expect(composer.getStatus()).toBe(SwapComposerStatus.COMMITTED)
@@ -767,6 +769,8 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
@@ -801,6 +805,8 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
@@ -835,6 +841,8 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
@@ -869,6 +877,8 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
@@ -903,6 +913,8 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
@@ -928,6 +940,8 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
@@ -960,6 +974,8 @@ describe('SwapComposer', () => {
           deflexTxns: mockDeflexTxns,
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
@@ -980,6 +996,8 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await expect(composer.addSwapTransactions()).rejects.toThrow(
@@ -995,6 +1013,8 @@ describe('SwapComposer', () => {
               deflexTxns: [],
               algorand: mockAlgorand,
               address: validAddress,
+              signer: async (txns: algosdk.Transaction[]) =>
+                txns.map(() => new Uint8Array(0)),
             }),
         ).toThrow('Swap transactions array cannot be empty')
       })
@@ -1029,17 +1049,13 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexLsigTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
 
-        const signedTxns = await composer.sign(
-          async (txns: algosdk.Transaction[]) => {
-            // Should not receive pre-signed transactions
-            expect(txns.length).toBe(0)
-            return []
-          },
-        )
+        const signedTxns = await composer.sign()
 
         expect(signedTxns.length).toBeGreaterThan(0)
       })
@@ -1067,17 +1083,13 @@ describe('SwapComposer', () => {
           deflexTxns: [mockDeflexSkTxn],
           algorand: mockAlgorand,
           address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
         })
 
         await composer.addSwapTransactions()
 
-        const signedTxns = await composer.sign(
-          async (txns: algosdk.Transaction[]) => {
-            // Should not receive pre-signed transactions
-            expect(txns.length).toBe(0)
-            return []
-          },
-        )
+        const signedTxns = await composer.sign()
 
         expect(signedTxns.length).toBeGreaterThan(0)
       })
@@ -1100,6 +1112,8 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.BUILDING)
@@ -1113,14 +1127,7 @@ describe('SwapComposer', () => {
 
       expect(composer.count()).toBeGreaterThanOrEqual(3)
 
-      const result = await composer.execute(
-        async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
-        },
-      )
+      const result = await composer.execute(1234)
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.COMMITTED)
       expect(result.confirmedRound).toBe(1234n)
@@ -1142,17 +1149,12 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       // Execute without manually adding swap transactions
-      const result = await composer.execute(
-        async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
-        },
-      )
+      const result = await composer.execute(1234)
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.COMMITTED)
       expect(result.txIds.length).toBeGreaterThan(0)

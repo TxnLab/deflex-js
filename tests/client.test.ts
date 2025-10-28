@@ -575,6 +575,8 @@ describe('DeflexClient', () => {
         quote: mockQuote as FetchQuoteResponse,
         address: validAddress,
         slippage: 1.0,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       expect(composer).toBeDefined()
@@ -641,6 +643,8 @@ describe('DeflexClient', () => {
         quote: deflexQuote,
         address: validAddress,
         slippage: 1.0,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map(() => new Uint8Array(0)),
       })
 
       expect(composer).toBeDefined()
