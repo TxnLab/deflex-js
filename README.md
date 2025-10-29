@@ -24,6 +24,15 @@ Simple React application demonstrating basic Deflex SDK integration.
 - Complete swap UI with quote display
 - Fast development with HMR
 
+### [React Query](./examples/react-query)
+
+Advanced React application showcasing TanStack Query integration.
+
+- Automatic quote fetching with debouncing
+- Real-time quote updates (refreshes every 15 seconds)
+- Optimistic UI updates with mutations
+- Demonstrates modern data fetching patterns
+
 ### [Node.js CLI](./examples/node-cli)
 
 Command-line tool for executing swaps without a browser.
@@ -66,6 +75,10 @@ Each example can be run independently. Navigate to the example directory and fol
 ```bash
 # React
 cd examples/react
+pnpm dev
+
+# React Query
+cd examples/react-query
 pnpm dev
 
 # Node.js CLI

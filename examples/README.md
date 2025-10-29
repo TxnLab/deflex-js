@@ -18,6 +18,22 @@ A simple React application demonstrating basic Deflex SDK integration.
 
 ---
 
+### [React Query](./react-query)
+
+An advanced React application showcasing TanStack Query (React Query) integration.
+
+**Key Features:**
+
+- Automatic quote fetching with 500ms debounce
+- Real-time quote updates (refreshes every 15 seconds)
+- `useQuery` hook for quotes, `useMutation` hook for swaps
+- Optimistic UI updates and improved UX
+- Demonstrates modern data fetching patterns
+
+[View Example →](./react-query/README.md)
+
+---
+
 ### [Node.js CLI](./node-cli)
 
 A command-line tool for executing swaps without a web interface.
@@ -69,6 +85,10 @@ Then run any example:
 cd examples/react
 pnpm dev
 
+# React Query
+cd examples/react-query
+pnpm dev
+
 # Node.js CLI
 cd examples/node-cli
 pnpm dev
@@ -78,7 +98,7 @@ pnpm dev
 
 Each example requires a Deflex API key. Create a `.env` file in the example directory:
 
-### React
+### React / React Query
 
 ```bash
 VITE_DEFLEX_API_KEY=your-api-key-here
