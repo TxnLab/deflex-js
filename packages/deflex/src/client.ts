@@ -1,5 +1,5 @@
 import { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { isValidAddress } from 'algosdk'
+import { isValidAddress, type TransactionSigner } from 'algosdk'
 import { SwapComposer, type SignerFunction } from './composer'
 import {
   DEFAULT_ALGOD_PORT,
@@ -361,7 +361,7 @@ export class DeflexClient {
     quote: DeflexQuote | FetchQuoteResponse
     address: string
     slippage: number
-    signer: SignerFunction
+    signer: TransactionSigner | SignerFunction
   }): Promise<SwapComposer> {
     const { quote, address, slippage, signer } = config
 

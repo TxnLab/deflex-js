@@ -22,15 +22,17 @@ import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import type { TransactionSigner } from 'algosdk'
 
 /**
- * A signer function for signing transaction groups
+ * A transaction signer function that supports both standard algosdk.TransactionSigner
+ * and ARC-1 compliant signers that may return null for unsigned transactions.
  *
- * Can be either:
- * - A TransactionSigner: algosdk.TransactionSigner
- * - A simpler inline function that only accepts the transaction group
+ * @param txnGroup - The complete transaction group to sign
+ * @param indexesToSign - Array of indexes indicating which transactions need signing
+ * @returns Array of signed transactions (may include nulls for ARC-1 compliant wallets)
  */
-export type SignerFunction =
-  | TransactionSigner
-  | ((txns: Transaction[]) => Promise<Uint8Array[]>)
+export type SignerFunction = (
+  txnGroup: Transaction[],
+  indexesToSign: number[],
+) => Promise<(Uint8Array | null)[]>
 
 /**
  * Status of the SwapComposer transaction group lifecycle
@@ -65,7 +67,7 @@ export interface SwapComposerConfig {
   /** The address of the account that will sign transactions */
   readonly address: string
   /** Transaction signer function */
-  readonly signer: SignerFunction
+  readonly signer: TransactionSigner | SignerFunction
 }
 
 /**
@@ -254,66 +256,64 @@ export class SwapComposer {
     // Build the transaction group, ensure status is BUILT
     const transactions = this.buildGroup()
 
-    // Separate user transactions and pre-signed transactions
-    const userTransactions: Transaction[] = []
-    const userTransactionIndexes: number[] = []
-    const deflexSignedTxns: Uint8Array[] = []
+    // Collect all transactions and identify which ones need user signature
+    const txnGroup: Transaction[] = []
+    const indexesToSign: number[] = []
 
     for (let i = 0; i < transactions.length; i++) {
       const item = transactions[i]
       if (!item) continue
 
+      txnGroup.push(item.txn)
+
       if (!item.deflexSignature) {
         // User transaction - needs user signature
-        userTransactions.push(item.txn)
-        userTransactionIndexes.push(userTransactions.length - 1)
-      } else {
+        indexesToSign.push(i)
+      }
+    }
+
+    // Sign all transactions with the complete group
+    const signedTxns = await this.signer(txnGroup, indexesToSign)
+
+    // Normalize signedTxns - handle both wallet patterns:
+    // Pattern 1: Returns only signed txns (length < txnGroup.length)
+    // Pattern 2: Returns array matching group length with nulls for non-signed (ARC-1)
+    const userSignedTxns = signedTxns.filter(
+      (txn): txn is Uint8Array => txn !== null,
+    )
+
+    // Rebuild complete group in correct order
+    const finalSignedTxns: Uint8Array[] = []
+    let userSignedIndex = 0
+
+    for (const item of transactions) {
+      if (item.deflexSignature) {
         // Pre-signed transaction - re-sign with Deflex signature
         const signedTxnBlob = this.signDeflexTransaction(
           item.txn,
           item.deflexSignature,
         )
-        deflexSignedTxns.push(signedTxnBlob)
-      }
-    }
-
-    // Sign user transactions
-    let userSignedTxns: Uint8Array[] = []
-    if (userTransactions.length > 0) {
-      userSignedTxns = await (this.signer as TransactionSigner)(
-        userTransactions,
-        userTransactionIndexes,
-      )
-    }
-
-    // Combine user-signed and pre-signed transactions in correct order
-    const signedTxns: Uint8Array[] = []
-    let userSignedIndex = 0
-    let deflexSignedIndex = 0
-
-    for (const item of transactions) {
-      if (!item.deflexSignature) {
-        const signedTxn = userSignedTxns[userSignedIndex]
-        if (signedTxn) {
-          signedTxns.push(signedTxn)
-        }
-        userSignedIndex++
+        finalSignedTxns.push(signedTxnBlob)
       } else {
-        const deflexSignedTxn = deflexSignedTxns[deflexSignedIndex]
-        if (deflexSignedTxn) {
-          signedTxns.push(deflexSignedTxn)
+        // User transaction - use signature from signer
+        const userSignedTxn = userSignedTxns[userSignedIndex]
+        if (!userSignedTxn) {
+          throw new Error(
+            `Missing signature for user transaction at index ${userSignedIndex}`,
+          )
         }
-        deflexSignedIndex++
+        finalSignedTxns.push(userSignedTxn)
+        userSignedIndex++
       }
     }
 
     const txIds = this.transactions.map((t) => t.txn.txID())
 
-    this.signedTxns = signedTxns
+    this.signedTxns = finalSignedTxns
     this.txIds = txIds
     this.status = SwapComposerStatus.SIGNED
 
-    return signedTxns
+    return finalSignedTxns
   }
 
   /**

@@ -583,10 +583,14 @@ describe('SwapComposer', () => {
         deflexTxns: [mockDeflexTxn],
         algorand: mockAlgorand,
         address: validAddress,
-        signer: async (txns: algosdk.Transaction[]) => {
-          // Should not receive pre-signed transactions
-          expect(txns.length).toBe(0)
-          return []
+        signer: async (
+          txns: algosdk.Transaction[],
+          indexesToSign: number[],
+        ) => {
+          // Should receive all transactions but no indexes to sign
+          expect(txns.length).toBe(1)
+          expect(indexesToSign.length).toBe(0)
+          return [new Uint8Array()]
         },
       })
 
@@ -595,6 +599,127 @@ describe('SwapComposer', () => {
       const signedTxns = await composer.sign()
 
       expect(signedTxns.length).toBeGreaterThan(0)
+    })
+
+    it('should pass correct indexes for user transactions that need signing', async () => {
+      const logicSig = new algosdk.LogicSigAccount(
+        new Uint8Array([1, 32, 1, 1, 34]), // Simple TEAL program
+      )
+
+      const appAddress = algosdk.getApplicationAddress(BigInt(123456))
+      const preSignedTxn = createMockTransaction(appAddress.toString())
+      const signedTxn = algosdk.signLogicSigTransactionObject(
+        preSignedTxn,
+        logicSig,
+      )
+
+      const mockPreSignedDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(preSignedTxn),
+        ).toString('base64'),
+        signature: {
+          type: 'logic_signature',
+          value: Object.fromEntries(
+            signedTxn.blob.entries(),
+          ) as unknown as Record<string, number>,
+        },
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const mockUserDeflexTxn: DeflexTransaction = createMockDeflexTxn()
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [
+          mockUserDeflexTxn,
+          mockPreSignedDeflexTxn,
+          mockUserDeflexTxn,
+        ],
+        algorand: mockAlgorand,
+        address: validAddress,
+        signer: async (
+          txns: algosdk.Transaction[],
+          indexesToSign: number[],
+        ) => {
+          // Should receive all 3 transactions
+          expect(txns.length).toBe(3)
+          // Should only sign indexes 0 and 2 (user transactions)
+          expect(indexesToSign).toEqual([0, 2])
+          // Return signed transactions for all
+          return txns.map(() => new Uint8Array([1, 2, 3]))
+        },
+      })
+
+      await composer.addSwapTransactions()
+
+      const signedTxns = await composer.sign()
+
+      expect(signedTxns.length).toBe(3)
+    })
+
+    it('should handle ARC-1 compliant signers that return nulls for non-signed transactions', async () => {
+      const logicSig = new algosdk.LogicSigAccount(
+        new Uint8Array([1, 32, 1, 1, 34]), // Simple TEAL program
+      )
+
+      const appAddress = algosdk.getApplicationAddress(BigInt(123456))
+      const preSignedTxn = createMockTransaction(appAddress.toString())
+      const signedTxn = algosdk.signLogicSigTransactionObject(
+        preSignedTxn,
+        logicSig,
+      )
+
+      const mockPreSignedDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(preSignedTxn),
+        ).toString('base64'),
+        signature: {
+          type: 'logic_signature',
+          value: Object.fromEntries(
+            signedTxn.blob.entries(),
+          ) as unknown as Record<string, number>,
+        },
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const mockUserDeflexTxn: DeflexTransaction = createMockDeflexTxn()
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [
+          mockUserDeflexTxn,
+          mockPreSignedDeflexTxn,
+          mockUserDeflexTxn,
+        ],
+        algorand: mockAlgorand,
+        address: validAddress,
+        signer: async (
+          txns: algosdk.Transaction[],
+          indexesToSign: number[],
+        ) => {
+          // ARC-1 pattern: return array matching txns.length with nulls for non-signed
+          const result: (Uint8Array | null)[] = new Array(txns.length).fill(
+            null,
+          )
+
+          // Only sign the transactions at the specified indexes
+          for (const index of indexesToSign) {
+            result[index] = new Uint8Array([1, 2, 3])
+          }
+
+          return result
+        },
+      })
+
+      await composer.addSwapTransactions()
+
+      const signedTxns = await composer.sign()
+
+      // Should still return 3 signed transactions with nulls filtered out and pre-signed added
+      expect(signedTxns.length).toBe(3)
+      expect(signedTxns.every((txn) => txn instanceof Uint8Array)).toBe(true)
     })
 
     it('should assign group ID to transactions', async () => {

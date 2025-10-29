@@ -113,7 +113,7 @@ console.log('Transaction IDs:', result.txIds)
 
 ### Transaction Signing
 
-The SDK supports two types of transaction signers that must be passed to `newSwap()`:
+The SDK supports both standard `algosdk.TransactionSigner` and ARC-1 compliant signer functions.
 
 #### 1. use-wallet Signer (Recommended)
 
@@ -137,13 +137,26 @@ await swap.execute()
 
 #### 2. Custom Signer Function
 
-```typescript
-// Custom signer function signature:
-// (txns: Transaction[]) => Promise<Uint8Array[]>
+The SDK accepts custom signer functions that receive the complete transaction group and an array of indexes indicating which transactions need signing:
 
-const customSigner = async (txns) => {
-  // Your custom signing logic here
-  const signedTxns = await yourWalletProvider.signTransactions(txns)
+```typescript
+import { Address, encodeUnsignedTransaction, type Transaction } from 'algosdk'
+
+// Example: Wrapping an ARC-1 compliant wallet
+const customSigner = async (
+  txnGroup: Transaction[],
+  indexesToSign: number[],
+) => {
+  // Convert to wallet's expected format
+  const walletTxns = txnGroup.map((txn, index) => ({
+    txn: Buffer.from(encodeUnsignedTransaction(txn)).toString('base64'),
+    signers: indexesToSign.includes(index)
+      ? [Address.fromString(activeAddress)]
+      : [],
+  }))
+
+  // Sign with wallet provider
+  const signedTxns = await walletProvider.signTxns(walletTxns)
 
   return signedTxns
 }
@@ -157,7 +170,11 @@ const swap = await deflex.newSwap({
 await swap.execute()
 ```
 
-> **Note**: The custom signer function must return an array of `Uint8Array` where each element is a signed transaction.
+The signer function supports two return patterns:
+- **Pattern 1** (Pera, Defly, algosdk): Returns only the signed transactions as `Uint8Array[]`
+- **Pattern 2** (Lute, ARC-1 compliant): Returns an array matching the transaction group length with `null` for unsigned transactions as `(Uint8Array | null)[]`
+
+Both patterns are automatically handled by the SDK.
 
 ### Advanced Transaction Composition
 
@@ -289,12 +306,12 @@ Returns a [`SwapComposer`](#swapcomposer) instance for building and executing sw
 async newSwap(config: SwapComposerConfig): Promise<SwapComposer>
 ```
 
-| Parameter  | Description                                       | Type                                                                                    |
-| ---------- | ------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| `quote`    | Quote result or raw API response                  | `DeflexQuote \| FetchQuoteResponse`                                                     |
-| `address`  | Signer address                                    | `string`                                                                                |
-| `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                                                                                |
-| `signer`   | Transaction signer function                       | `algosdk.TransactionSigner \| ((txns: algosdk.Transaction[]) => Promise<Uint8Array[]>)` |
+| Parameter  | Description                                       | Type                                                                                                                                    |
+| ---------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
+| `quote`    | Quote result or raw API response                  | `DeflexQuote \| FetchQuoteResponse`                                                                                                     |
+| `address`  | Signer address                                    | `string`                                                                                                                                |
+| `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                                                                                                                                |
+| `signer`   | Transaction signer function                       | `algosdk.TransactionSigner \| ((txnGroup: Transaction[], indexesToSign: number[]) => Promise<(Uint8Array \| null)[]>)` |
 
 #### DeflexClient.needsAssetOptIn()
 

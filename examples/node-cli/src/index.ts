@@ -23,10 +23,13 @@ interface SwapConfig {
 async function createAccountSigner(mnemonic: string) {
   const account = algosdk.mnemonicToSecretKey(mnemonic)
 
-  return async (txns: algosdk.Transaction[]): Promise<Uint8Array[]> => {
-    return txns.map((txn) => {
-      // Sign the transaction
-      return algosdk.signTransaction(txn, account.sk).blob
+  return async (
+    txnGroup: algosdk.Transaction[],
+    indexesToSign: number[],
+  ): Promise<Uint8Array[]> => {
+    return indexesToSign.map((index) => {
+      // Sign the transaction at the specified index
+      return algosdk.signTransaction(txnGroup[index], account.sk).blob
     })
   }
 }

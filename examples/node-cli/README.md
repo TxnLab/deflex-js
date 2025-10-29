@@ -120,13 +120,20 @@ This example shows how to implement a custom transaction signer without using `@
 async function createAccountSigner(mnemonic: string) {
   const account = algosdk.mnemonicToSecretKey(mnemonic)
 
-  return async (txns: algosdk.Transaction[]): Promise<Uint8Array[]> => {
-    return txns.map((txn) => {
-      return algosdk.signTransaction(txn, account.sk).blob
+  return async (
+    txnGroup: algosdk.Transaction[],
+    indexesToSign: number[]
+  ): Promise<Uint8Array[]> => {
+    return indexesToSign.map((index) => {
+      return algosdk.signTransaction(txnGroup[index], account.sk).blob
     })
   }
 }
 ```
+
+The signer receives:
+- `txnGroup`: The complete transaction group (for wallet validation)
+- `indexesToSign`: Array of indexes indicating which transactions need signing
 
 This pattern can be adapted for other signing methods (KMD, hardware wallets, etc.).
 
