@@ -73,7 +73,7 @@ export interface FetchQuoteParams {
   readonly optIn?: boolean
 
   /** Address of the account that will perform the swap (required if autoOptIn is enabled) */
-  readonly address?: string
+  readonly address?: string | null
 }
 
 /**

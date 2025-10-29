@@ -301,7 +301,7 @@ export class DeflexClient {
       ...response,
       quote: response.quote === '' ? 0n : BigInt(response.quote),
       amount: BigInt(params.amount),
-      address: params.address,
+      address: params.address ?? undefined,
       createdAt: Date.now(),
     }
   }

@@ -46,7 +46,7 @@ function App() {
         fromASAID: fromAsset,
         toASAID: toAsset,
         amount: amountInBaseUnits,
-        address: activeAddress || undefined,
+        address: activeAddress,
       })
       console.log('Quote received', quoteResult)
 
