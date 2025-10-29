@@ -50,13 +50,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit",
-    "release": "np"
+    "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
     "@types/node": "24.9.1",
     "@vitest/coverage-v8": "3.2.4",
-    "np": "10.2.0",
     "publint": "0.3.15",
     "tsdown": "0.15.9",
     "typescript": "5.9.3",
