@@ -170,7 +170,10 @@ export class DeflexClient {
     url.searchParams.append('disabledProtocols', allDisabledProtocols.join(','))
     url.searchParams.append('maxGroupSize', maxGroupSize.toString())
     url.searchParams.append('maxDepth', maxDepth.toString())
-    url.searchParams.append('optIn', String(includeOptIn))
+
+    if (typeof includeOptIn === 'boolean') {
+      url.searchParams.append('optIn', String(includeOptIn))
+    }
 
     if (this.config.referrerAddress) {
       url.searchParams.append('referrerAddress', this.config.referrerAddress)

@@ -269,6 +269,237 @@ describe('DeflexClient', () => {
       expect(callUrl).toContain('toASAID=31566704')
       expect(callUrl).toContain('amount=1000000')
     })
+
+    describe('optIn parameter', () => {
+      it('should include optIn=true when optIn is explicitly set to true', async () => {
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await client.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          optIn: true,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).toContain('optIn=true')
+      })
+
+      it('should include optIn=false when optIn is explicitly set to false', async () => {
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await client.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          optIn: false,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).toContain('optIn=false')
+      })
+
+      it('should NOT include optIn param when optIn is undefined and autoOptIn is disabled', async () => {
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await client.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          // optIn is undefined
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).not.toContain('optIn=')
+      })
+
+      it('should include optIn=true when autoOptIn is enabled and asset opt-in is needed', async () => {
+        const clientWithAutoOptIn = new DeflexClient({
+          ...validConfig,
+          autoOptIn: true,
+        })
+
+        const mockAlgorand = AlgorandClient.fromConfig({
+          algodConfig: { server: '', port: 443, token: '' },
+        })
+        const mockGetInfo = vi.fn().mockResolvedValue({
+          assets: [], // Asset not opted in
+        })
+        mockAlgorand.account.getInformation = mockGetInfo
+        ;(clientWithAutoOptIn as any).algorand = mockAlgorand
+
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        const validAddress =
+          '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
+
+        await clientWithAutoOptIn.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          address: validAddress,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).toContain('optIn=true')
+        expect(mockGetInfo).toHaveBeenCalledWith(validAddress)
+      })
+
+      it('should include optIn=false when autoOptIn is enabled and asset is already opted in', async () => {
+        const clientWithAutoOptIn = new DeflexClient({
+          ...validConfig,
+          autoOptIn: true,
+        })
+
+        const mockAlgorand = AlgorandClient.fromConfig({
+          algodConfig: { server: '', port: 443, token: '' },
+        })
+        const mockGetInfo = vi.fn().mockResolvedValue({
+          assets: [{ assetId: BigInt(31566704), amount: BigInt(0) }], // Asset already opted in
+        })
+        mockAlgorand.account.getInformation = mockGetInfo
+        ;(clientWithAutoOptIn as any).algorand = mockAlgorand
+
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        const validAddress =
+          '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
+
+        await clientWithAutoOptIn.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          address: validAddress,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).toContain('optIn=false')
+        expect(mockGetInfo).toHaveBeenCalledWith(validAddress)
+      })
+
+      it('should NOT include optIn param when autoOptIn is enabled but no address provided', async () => {
+        const clientWithAutoOptIn = new DeflexClient({
+          ...validConfig,
+          autoOptIn: true,
+        })
+
+        const consoleWarnSpy = vi
+          .spyOn(console, 'warn')
+          .mockImplementation(() => {})
+
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await clientWithAutoOptIn.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          // No address provided
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).not.toContain('optIn=')
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+          'autoOptIn is enabled but no address provided to fetchQuote(). Asset opt-in check skipped.',
+        )
+
+        consoleWarnSpy.mockRestore()
+      })
+
+      it('should use explicit optIn value even when autoOptIn is enabled', async () => {
+        const clientWithAutoOptIn = new DeflexClient({
+          ...validConfig,
+          autoOptIn: true,
+        })
+
+        const mockAlgorand = AlgorandClient.fromConfig({
+          algodConfig: { server: '', port: 443, token: '' },
+        })
+        const mockGetInfo = vi.fn()
+        mockAlgorand.account.getInformation = mockGetInfo
+        ;(clientWithAutoOptIn as any).algorand = mockAlgorand
+
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        const validAddress =
+          '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
+
+        await clientWithAutoOptIn.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          optIn: false, // Explicitly set to false
+          address: validAddress,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).toContain('optIn=false')
+        // Should NOT call needsAssetOptIn when optIn is explicitly provided
+        expect(mockGetInfo).not.toHaveBeenCalled()
+      })
+    })
   })
 
   describe('needsAssetOptIn', () => {
