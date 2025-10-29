@@ -1,61 +1,28 @@
 {
-  "name": "@txnlab/deflex",
-  "version": "1.0.0-beta.2",
-  "description": "TypeScript/JavaScript SDK for Deflex Order Router - smart order routing and DEX aggregation on Algorand",
-  "keywords": [
-    "algorand",
-    "deflex",
-    "dex",
-    "swap",
-    "order-router",
-    "defi",
-    "amm",
-    "liquidity",
-    "aggregator",
-    "trading",
-    "blockchain",
-    "typescript",
-    "sdk"
-  ],
-  "homepage": "https://github.com/TxnLab/deflex-js",
-  "bugs": {
-    "url": "https://github.com/TxnLab/deflex-js/issues"
-  },
-  "author": "Doug Richar <doug@txnlab.dev> (https://txnlab.dev)",
+  "name": "@txnlab/deflex-monorepo",
+  "private": true,
+  "description": "Monorepo for Deflex SDK and examples",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/TxnLab/deflex-js.git"
   },
   "license": "MIT",
-  "files": [
-    "dist"
-  ],
-  "type": "module",
-  "exports": {
-    ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
-    }
-  },
-  "types": "./dist/index.d.ts",
-  "publishConfig": {
-    "access": "public"
-  },
+  "author": "Doug Richar <doug@txnlab.dev> (https://txnlab.dev)",
+  "packageManager": "pnpm@10.18.3",
   "engines": {
     "node": ">=20"
   },
-  "packageManager": "pnpm@10.18.3",
   "scripts": {
-    "build": "tsdown && publint --strict",
-    "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run test",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:coverage": "vitest run --coverage",
-    "lint": "eslint",
+    "build": "pnpm --filter @txnlab/deflex run build",
+    "test": "pnpm --filter @txnlab/deflex run test",
+    "test:watch": "pnpm --filter @txnlab/deflex run test:watch",
+    "test:coverage": "pnpm --filter @txnlab/deflex run test:coverage",
+    "lint": "eslint .",
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
-    "typecheck": "tsc --noEmit",
-    "release": "np"
+    "typecheck": "pnpm --filter @txnlab/deflex run typecheck",
+    "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run test",
+    "release": "pnpm --filter @txnlab/deflex run release"
   },
   "devDependencies": {
     "@eslint/js": "9.38.0",
@@ -77,9 +44,5 @@
       "esbuild",
       "unrs-resolver"
     ]
-  },
-  "dependencies": {
-    "@algorandfoundation/algokit-utils": "9.1.2",
-    "algosdk": "3.5.2"
   }
 }
