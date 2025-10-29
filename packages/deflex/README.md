@@ -57,17 +57,24 @@ const deflex = new DeflexClient({
   apiKey: 'your-api-key',
 })
 
-// Advanced configuration
+// Custom Algod configuration
 const deflex = new DeflexClient({
   apiKey: 'your-api-key',
   algodUri: 'https://mainnet-api.4160.nodely.dev/',
   algodToken: '',
   algodPort: 443,
-  referrerAddress: '<referrer_address>', // Earns 25% of swap fees
-  feeBps: 15, // 0.15% fee (max: 300 = 3%)
   autoOptIn: true, // Automatically handle asset opt-ins
 })
+
+// Earn fees with the referral program
+const deflex = new DeflexClient({
+  apiKey: 'your-api-key',
+  referrerAddress: 'YOUR_ALGORAND_ADDRESS', // Earns 25% of swap fees
+  feeBps: 15, // 0.15% fee (max: 300 = 3%)
+})
 ```
+
+By providing your Algorand address as the `referrerAddress` when initializing the client, you can earn 25% of the swap fees generated through your integration. Set the `feeBps` parameter to specify the total fee charged to users (default: 0.15%, max: 3.00%). Learn more about the [Deflex Referral Program](https://txnlab.gitbook.io/deflex-api/referral-treasury/referral-program).
 
 ### Get a Swap Quote
 
