@@ -8,6 +8,9 @@ export interface DeflexConfigParams {
   /** API key for Deflex API (required) */
   readonly apiKey: string
 
+  /** Base URL for the Deflex API (default: https://deflex.txnlab.dev) */
+  readonly apiBaseUrl?: string
+
   /** Algod node URI (default: https://mainnet-api.4160.nodely.dev/) */
   readonly algodUri?: string
 

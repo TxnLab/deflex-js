@@ -269,6 +269,7 @@ new DeflexClient(config: DeflexConfigParams)
 | Option            | Description                                                  | Type               | Default                                |
 | ----------------- | ------------------------------------------------------------ | ------------------ | -------------------------------------- |
 | `apiKey`          | Your Deflex API key                                          | `string`           | **required**                           |
+| `apiBaseUrl`      | Base URL for the Deflex API                                  | `string`           | `https://deflex.txnlab.dev`            |
 | `algodUri`        | Algod node URI                                               | `string`           | `https://mainnet-api.4160.nodely.dev/` |
 | `algodToken`      | Algod node token                                             | `string`           | `''`                                   |
 | `algodPort`       | Algod node port                                              | `string \| number` | `443`                                  |

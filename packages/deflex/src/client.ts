@@ -43,6 +43,7 @@ import type {
  * ```typescript
  * const deflex = new DeflexClient({
  *   apiKey: 'your-api-key',
+ *   apiBaseUrl: 'https://deflex.txnlab.dev',
  *   algodUri: 'https://mainnet-api.4160.nodely.dev/',
  *   algodToken: '',
  *   algodPort: 443,
@@ -53,7 +54,6 @@ import type {
  * ```
  */
 export class DeflexClient {
-  private readonly baseUrl: string = DEFAULT_API_BASE_URL
   private readonly config: DeflexConfig
   private readonly algorand: AlgorandClient
 
@@ -62,6 +62,7 @@ export class DeflexClient {
    *
    * @param config - Configuration parameters
    * @param config.apiKey - API key for Deflex API (required)
+   * @param config.apiBaseUrl - Base URL for the Deflex API (default: https://deflex.txnlab.dev)
    * @param config.algodUri - Algod node URI (default: https://mainnet-api.4160.nodely.dev/)
    * @param config.algodToken - Algod node token (default: '')
    * @param config.algodPort - Algod node port (default: 443)
@@ -73,6 +74,7 @@ export class DeflexClient {
     // Validate and set config
     this.config = {
       apiKey: this.validateApiKey(config.apiKey),
+      apiBaseUrl: config.apiBaseUrl ?? DEFAULT_API_BASE_URL,
       algodUri: config.algodUri ?? DEFAULT_ALGOD_URI,
       algodToken: config.algodToken ?? DEFAULT_ALGOD_TOKEN,
       algodPort: config.algodPort ?? DEFAULT_ALGOD_PORT,
@@ -156,7 +158,7 @@ export class DeflexClient {
       }
     }
 
-    const url = new URL(`${this.baseUrl}/fetchQuote`)
+    const url = new URL(`${this.config.apiBaseUrl}/fetchQuote`)
 
     url.searchParams.append('apiKey', this.config.apiKey)
     url.searchParams.append('algodUri', this.config.algodUri)
@@ -245,7 +247,7 @@ export class DeflexClient {
     // Validate signer address
     this.validateAddress(address)
 
-    const url = new URL(`${this.baseUrl}/fetchExecuteSwapTxns`)
+    const url = new URL(`${this.config.apiBaseUrl}/fetchExecuteSwapTxns`)
 
     const body: FetchSwapTxnsBody = {
       apiKey: this.config.apiKey,

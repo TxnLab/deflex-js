@@ -109,6 +109,14 @@ describe('DeflexClient', () => {
       })
       expect(client).toBeInstanceOf(DeflexClient)
     })
+
+    it('should accept custom apiBaseUrl configuration', () => {
+      const client = new DeflexClient({
+        ...validConfig,
+        apiBaseUrl: 'https://custom-api.example.com',
+      })
+      expect(client).toBeInstanceOf(DeflexClient)
+    })
   })
 
   describe('fetchQuote', () => {
@@ -203,6 +211,33 @@ describe('DeflexClient', () => {
       const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
       expect(callUrl).toContain('Humble')
       expect(callUrl).toContain('Tinyman')
+    })
+
+    it('should use custom apiBaseUrl when provided', async () => {
+      const customClient = new DeflexClient({
+        ...validConfig,
+        apiBaseUrl: 'https://custom-api.example.com',
+      })
+
+      const mockQuote: Partial<FetchQuoteResponse> = {
+        fromASAID: 0,
+        toASAID: 31566704,
+        quote: '1000000',
+        route: [],
+        txnPayload: { iv: 'test-iv', data: 'test-data' },
+        requiredAppOptIns: [],
+      }
+
+      mockRequest.mockResolvedValue(mockQuote)
+
+      await customClient.fetchQuote({
+        fromASAID: 0,
+        toASAID: 31566704,
+        amount: 1_000_000,
+      })
+
+      const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+      expect(callUrl).toContain('https://custom-api.example.com/fetchQuote')
     })
 
     it('should check for asset opt-in when autoOptIn is enabled and address provided', async () => {
