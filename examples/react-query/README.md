@@ -17,7 +17,7 @@ A React application demonstrating advanced Deflex SDK integration with TanStack 
 
 - **Deflex API Key** - Request an API key by emailing [support@txnlab.dev](mailto:support@txnlab.dev)
 - Node.js >= 20
-- pnpm 10.18.3 or later
+- pnpm 10.20.0 or later
 
 ## Setup
 

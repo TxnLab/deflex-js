@@ -5,7 +5,7 @@ This example demonstrates how to use the Deflex SDK in a Node.js command-line ap
 ## Features
 
 - Command-line interface for executing swaps
-- Custom signer implementation using algosdk.Account
+- Custom signer implementation using `algosdk.Account`
 - Environment variable configuration
 - Detailed console output with swap progress
 - TypeScript with strict mode enabled
@@ -14,7 +14,7 @@ This example demonstrates how to use the Deflex SDK in a Node.js command-line ap
 
 - **Deflex API Key** - Request an API key by emailing [support@txnlab.dev](mailto:support@txnlab.dev)
 - Node.js >= 20
-- pnpm 10.18.3 or later
+- pnpm 10.20.0 or later
 
 ## Setup
 
@@ -109,7 +109,7 @@ The CLI will:
      1. ABC123...
      2. DEF456...
 
-🔗 View on AlgoExplorer: https://algoexplorer.io/tx/ABC123...
+🔗 View on allo: https://allo.info/tx/ABC123...
 ```
 
 ## Custom Signer Implementation
