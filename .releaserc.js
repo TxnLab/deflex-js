@@ -53,7 +53,10 @@ export default {
     [
       '@semantic-release/git',
       {
-        assets: ['packages/deflex/CHANGELOG.md', 'packages/deflex/package.json'],
+        assets: [
+          'packages/deflex/CHANGELOG.md',
+          'packages/deflex/package.json',
+        ],
         message:
           'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
       },
