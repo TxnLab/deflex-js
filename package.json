@@ -8,6 +8,7 @@
   },
   "license": "MIT",
   "author": "Doug Richar <doug@txnlab.dev> (https://txnlab.dev)",
+  "type": "module",
   "packageManager": "pnpm@10.18.3",
   "engines": {
     "node": ">=20"
@@ -21,14 +22,19 @@
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "typecheck": "pnpm --filter @txnlab/deflex run typecheck",
-    "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run test"
+    "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run test",
+    "release": "pnpm ci && semantic-release"
   },
   "devDependencies": {
     "@eslint/js": "9.38.0",
+    "@semantic-release/changelog": "6.0.3",
+    "@semantic-release/exec": "7.1.0",
+    "@semantic-release/git": "10.0.1",
     "eslint": "9.38.0",
     "eslint-config-prettier": "10.1.8",
     "eslint-plugin-import-x": "4.16.1",
     "prettier": "3.6.2",
+    "semantic-release": "25.0.1",
     "typescript-eslint": "8.46.2"
   },
   "pnpm": {
