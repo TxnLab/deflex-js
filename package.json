@@ -23,7 +23,7 @@
     "format:fix": "prettier --write .",
     "typecheck": "pnpm --filter @txnlab/deflex run typecheck",
     "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run test",
-    "release": "pnpm ci && semantic-release"
+    "release": "pnpm run ci && semantic-release"
   },
   "devDependencies": {
     "@eslint/js": "9.38.0",
