@@ -25,10 +25,9 @@
       "groupName": "pnpm"
     },
     {
-      "description": "Disable Node.js major version updates",
+      "description": "Pin Node.js and @types/node to v22.x",
       "matchPackageNames": ["node", "@types/node"],
-      "matchUpdateTypes": ["major"],
-      "enabled": false
+      "allowedVersions": "22.x"
     },
     {
       "description": "Major updates require manual review",
