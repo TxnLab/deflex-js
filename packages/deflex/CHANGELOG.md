@@ -1,3 +1,10 @@
+# [1.1.0](https://github.com/TxnLab/deflex-js/compare/v1.0.0...v1.1.0) (2025-11-01)
+
+
+### Features
+
+* **deps:** change algosdk to peer dependency and remove algokit-utils ([#7](https://github.com/TxnLab/deflex-js/issues/7)) ([2275607](https://github.com/TxnLab/deflex-js/commit/2275607aa513a6db49b3f6672891bf8437c552df))
+
 # 1.0.0 (2025-10-31)
 
 
