@@ -1,5 +1,11 @@
 # Deflex SDK
 
+[![npm version](https://img.shields.io/npm/v/@txnlab/deflex.svg)](https://www.npmjs.com/package/@txnlab/deflex)
+[![bundle size](https://deno.bundlejs.com/badge?q=@txnlab/deflex@latest&treeshake=[*])](https://bundlejs.com/?q=%40txnlab%2Fdeflex%40latest&treeshake=%5B*%5D)
+[![CI](https://github.com/TxnLab/deflex-js/actions/workflows/ci.yml/badge.svg)](https://github.com/TxnLab/deflex-js/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+
 TypeScript/JavaScript SDK for [Deflex Order Router](https://txnlab.gitbook.io/deflex-api) - smart order routing and DEX aggregation on Algorand.
 
 ## Prerequisites

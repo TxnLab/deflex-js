@@ -7,7 +7,7 @@ A React application demonstrating advanced Deflex SDK integration with TanStack 
 - **Automatic quote fetching** - Quotes are fetched automatically when a valid amount is entered
 - **Fresh quotes** - Quotes automatically refetch every 15 seconds
 - **React Query integration** - Uses `useQuery` for quotes and `useMutation` for swaps
-- **Multiple wallet support** (Defly, Pera, Lute)
+- **Multiple wallet support** (Pera, Defly, Lute)
 - **Modern wallet UI** with `@txnlab/use-wallet-react` v4
 - **Real-time updates** - No "Get Quote" button needed
 - **Execute swaps** with slippage protection
@@ -65,7 +65,7 @@ pnpm preview
 
 ## Usage
 
-1. Choose a wallet from the available options (Defly, Pera, or Lute)
+1. Choose a wallet from the available options (Pera, Defly, or Lute)
 2. Click to connect your chosen wallet
 3. If you have multiple accounts, select the active account from the dropdown
 4. Select the assets you want to swap
@@ -83,7 +83,7 @@ This example showcases how to use TanStack Query (React Query) with the Deflex S
 
 ```typescript
 const { data: quote, error, isLoading } = useQuery({
-  queryKey: ['quote', fromAsset, toAsset, amount, activeAddress],
+  queryKey: ['quote', fromAsset, toAsset, amount],
   queryFn: async () => {
     const deflex = new DeflexClient({ apiKey, autoOptIn: true })
     return await deflex.newQuote({
@@ -144,11 +144,8 @@ You can customize which wallets are available by modifying this configuration.
 
 ## Notes
 
-- This example uses the mainnet by default
-- Supports multiple wallets: Defly, Pera, and Lute
-- Multi-account support with account switching
-- Make sure you have ALGO or the selected asset in your wallet
-- The SDK automatically handles asset opt-ins when needed
+- This example uses mainnet (real assets!)
+- Make sure you have sufficient ALGO/assets in your account
+- The SDK automatically handles app and asset opt-ins when needed
 - Slippage is set to 1% by default but can be adjusted
-- Wallet state persists across page refreshes
 - Quotes automatically refresh to ensure accurate pricing
