@@ -11,7 +11,7 @@ A simple React application demonstrating basic Deflex SDK integration.
 **Key Features:**
 
 - React 18 with TypeScript and Vite
-- Multiple wallet support (Defly, Pera, Lute)
+- Multiple wallet support (Pera, Defly, Lute)
 - Complete swap interface with quote display
 
 [View Example →](./react/README.md)

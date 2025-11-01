@@ -20,9 +20,8 @@ The [examples](./examples) directory contains complete working implementations:
 Simple React application demonstrating basic Deflex SDK integration.
 
 - React 18 with TypeScript and Vite
-- Multiple wallet support (Defly, Pera, Lute, WalletConnect)
+- Multiple wallet support (Pera, Defly, Lute)
 - Complete swap UI with quote display
-- Fast development with HMR
 
 ### [React Query](./examples/react-query)
 
@@ -98,15 +97,15 @@ npm install @txnlab/deflex algosdk
 Basic usage:
 
 ```typescript
-import { DeflexClient } from '@txnlab/deflex';
-import { useWallet } from '@txnlab/use-wallet-react';
+import { DeflexClient } from '@txnlab/deflex'
+import { useWallet } from '@txnlab/use-wallet-react'
 
-const { activeAddress, transactionSigner } = useWallet();
+const { activeAddress, transactionSigner } = useWallet()
 
 // Initialize client
 const deflex = new DeflexClient({
 	apiKey: 'your-api-key',
-});
+})
 
 // Get quote
 const quote = await deflex.newQuote({
@@ -114,7 +113,7 @@ const quote = await deflex.newQuote({
 	toASAID: 31566704, // USDC
 	amount: 1_000_000, // 1 ALGO
 	address: activeAddress,
-});
+})
 
 // Execute swap
 const swap = await deflex.newSwap({
@@ -122,8 +121,8 @@ const swap = await deflex.newSwap({
 	address: activeAddress,
 	signer: transactionSigner,
 	slippage: 1, // 1%
-});
-const result = await swap.execute();
+})
+const result = await swap.execute()
 ```
 
 ## Testing

@@ -133,15 +133,15 @@ async function createAccountSigner(mnemonic: string) {
 ```
 
 The signer receives:
-- `txnGroup`: The complete transaction group (for wallet validation)
+- `txnGroup`: The complete transaction group
 - `indexesToSign`: Array of indexes indicating which transactions need signing
 
 This pattern can be adapted for other signing methods (KMD, hardware wallets, etc.).
 
 ## Notes
 
-- This example uses mainnet by default
+- This example uses mainnet (real assets!)
 - Make sure you have sufficient ALGO/assets in your account
-- The SDK automatically handles asset opt-ins when needed
+- The SDK automatically handles app and asset opt-ins when needed
 - All swap parameters can be configured via environment variables
 - Never commit your `.env` file with real credentials

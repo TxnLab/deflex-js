@@ -4,7 +4,7 @@ A simple React application demonstrating basic Deflex SDK integration with Vite 
 
 ## Features
 
-- Multiple wallet support (Defly, Pera, Lute)
+- Multiple wallet support (Pera, Defly, Lute)
 - Modern wallet UI with `@txnlab/use-wallet-react` v4
 - Get swap quotes from Deflex API
 - Execute swaps with slippage protection
@@ -62,7 +62,7 @@ pnpm preview
 
 ## Usage
 
-1. Choose a wallet from the available options (Defly, Pera, or Lute)
+1. Choose a wallet from the available options (Pera, Defly, or Lute)
 2. Click to connect your chosen wallet
 3. If you have multiple accounts, select the active account from the dropdown
 4. Select the assets you want to swap
@@ -89,10 +89,7 @@ You can customize which wallets are available by modifying this configuration.
 
 ## Notes
 
-- This example uses the mainnet by default
-- Supports multiple wallets: Defly, Pera, and Lute
-- Multi-account support with account switching
-- Make sure you have ALGO or the selected asset in your wallet
-- The SDK automatically handles asset opt-ins when needed
+- This example uses mainnet (real assets!)
+- Make sure you have sufficient ALGO/assets in your account
+- The SDK automatically handles app and asset opt-ins when needed
 - Slippage is set to 1% by default but can be adjusted
-- Wallet state persists across page refreshes
