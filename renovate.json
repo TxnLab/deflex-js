@@ -44,6 +44,8 @@
       "dependencyDashboardApproval": true
     }
   ],
+  "schedule": ["before 3am on Monday"],
+  "timezone": "America/New_York",
   "prConcurrentLimit": 5,
   "prHourlyLimit": 2,
   "labels": ["dependencies"],
