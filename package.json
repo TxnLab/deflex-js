@@ -22,7 +22,7 @@
     "format": "prettier --check .",
     "format:fix": "prettier --write .",
     "typecheck": "pnpm --filter @txnlab/deflex run typecheck",
-    "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run test",
+    "ci": "pnpm run build && pnpm run lint && pnpm run format && pnpm run typecheck && pnpm run test",
     "release": "pnpm run ci && semantic-release"
   },
   "devDependencies": {
