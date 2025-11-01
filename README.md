@@ -49,6 +49,7 @@ This is a pnpm workspace monorepo. All packages and examples share dependencies 
 ### Prerequisites
 
 - **Deflex API Key** - Request an API key by emailing [support@txnlab.dev](mailto:support@txnlab.dev)
+- algosdk 3.0.0 or later (peer dependency)
 - Node.js >= 20
 - pnpm 10.20.0 or later
 
@@ -91,7 +92,7 @@ pnpm dev
 Install the SDK in your project:
 
 ```bash
-npm install @txnlab/deflex
+npm install @txnlab/deflex algosdk
 ```
 
 Basic usage:

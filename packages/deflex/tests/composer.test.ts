@@ -1,4 +1,3 @@
-import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { SwapComposer, SwapComposerStatus } from '../src/composer'
@@ -10,13 +9,13 @@ vi.mock('algosdk', async () => {
   return {
     ...actual,
     waitForConfirmation: vi.fn().mockResolvedValue({
-      confirmedRound: 1234n,
+      confirmedRound: 1234,
     }),
   }
 })
 
 describe('SwapComposer', () => {
-  let mockAlgorand: AlgorandClient
+  let mockAlgodClient: algosdk.Algodv2
   const validAddress =
     '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
@@ -60,33 +59,29 @@ describe('SwapComposer', () => {
   })
 
   beforeEach(() => {
-    mockAlgorand = {
-      account: {
-        getInformation: vi.fn().mockResolvedValue({
+    mockAlgodClient = {
+      accountInformation: vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({
           appsLocalState: [],
           assets: [],
         }),
-      },
-      client: {
-        algod: {
-          getTransactionParams: vi.fn().mockReturnValue({
-            do: vi.fn().mockResolvedValue({
-              fee: 1000,
-              firstValid: 1000,
-              lastValid: 2000,
-              minFee: 1000,
-              genesisID: 'testnet-v1.0',
-              genesisHash: Buffer.from(
-                'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
-                'base64',
-              ),
-            }),
-          }),
-          sendRawTransaction: vi.fn().mockReturnValue({
-            do: vi.fn().mockResolvedValue({ txId: 'test-tx-id' }),
-          }),
-        },
-      },
+      }),
+      getTransactionParams: vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          minFee: 1000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+        }),
+      }),
+      sendRawTransaction: vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({ txId: 'test-tx-id' }),
+      }),
     } as any
   })
 
@@ -104,7 +99,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -129,7 +124,7 @@ describe('SwapComposer', () => {
           new SwapComposer({
             quote: null as any,
             deflexTxns: [mockDeflexTxn],
-            algorand: mockAlgorand,
+            algodClient: mockAlgodClient,
             address: validAddress,
             signer: async (txns: algosdk.Transaction[]) =>
               txns.map(() => new Uint8Array(0)),
@@ -143,7 +138,7 @@ describe('SwapComposer', () => {
           new SwapComposer({
             quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: null as any,
-            algorand: mockAlgorand,
+            algodClient: mockAlgodClient,
             address: validAddress,
             signer: async (txns: algosdk.Transaction[]) =>
               txns.map(() => new Uint8Array(0)),
@@ -157,7 +152,7 @@ describe('SwapComposer', () => {
           new SwapComposer({
             quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: [],
-            algorand: mockAlgorand,
+            algodClient: mockAlgodClient,
             address: validAddress,
             signer: async (txns: algosdk.Transaction[]) =>
               txns.map(() => new Uint8Array(0)),
@@ -180,12 +175,12 @@ describe('SwapComposer', () => {
           new SwapComposer({
             quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: [mockDeflexTxn],
-            algorand: null as any,
+            algodClient: null as any,
             address: validAddress,
             signer: async (txns: algosdk.Transaction[]) =>
               txns.map(() => new Uint8Array(0)),
           }),
-      ).toThrow('AlgorandClient instance is required')
+      ).toThrow('Algodv2 client instance is required')
     })
 
     it('should throw error for invalid Algorand address', () => {
@@ -203,7 +198,7 @@ describe('SwapComposer', () => {
           new SwapComposer({
             quote: createMockQuote() as FetchQuoteResponse,
             deflexTxns: [mockDeflexTxn],
-            algorand: mockAlgorand,
+            algodClient: mockAlgodClient,
             address: 'invalid-address',
             signer: async (txns: algosdk.Transaction[]) =>
               txns.map(() => new Uint8Array(0)),
@@ -217,7 +212,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -232,7 +227,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -245,7 +240,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -264,7 +259,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -280,7 +275,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -298,7 +293,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -320,7 +315,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -351,7 +346,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -375,7 +370,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -401,7 +396,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -436,7 +431,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: mockDeflexTxns,
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -465,7 +460,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: quote as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -483,7 +478,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -515,7 +510,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -536,7 +531,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -581,7 +576,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (
           txns: algosdk.Transaction[],
@@ -636,7 +631,7 @@ describe('SwapComposer', () => {
           mockPreSignedDeflexTxn,
           mockUserDeflexTxn,
         ],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (
           txns: algosdk.Transaction[],
@@ -693,7 +688,7 @@ describe('SwapComposer', () => {
           mockPreSignedDeflexTxn,
           mockUserDeflexTxn,
         ],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (
           txns: algosdk.Transaction[],
@@ -726,7 +721,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           // Verify group IDs are assigned
@@ -755,7 +750,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -771,14 +766,14 @@ describe('SwapComposer', () => {
 
       expect(txIds).toHaveLength(2) // 1 user txn + 1 from deflexTxns
       expect(composer.getStatus()).toBe(SwapComposerStatus.SUBMITTED)
-      expect(mockAlgorand.client.algod.sendRawTransaction).toHaveBeenCalled()
+      expect(mockAlgodClient.sendRawTransaction).toHaveBeenCalled()
     })
 
     it('should throw error when trying to resubmit', async () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -805,7 +800,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -828,7 +823,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -851,7 +846,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
           return txns.map((txn) => {
@@ -892,7 +887,7 @@ describe('SwapComposer', () => {
         const composer = new SwapComposer({
           quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -920,15 +915,17 @@ describe('SwapComposer', () => {
         }
 
         // Mock that user is already opted into app 123456
-        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
-          appsLocalState: [{ id: 123456 }],
-          assets: [],
+        mockAlgodClient.accountInformation = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            appsLocalState: [{ id: 123456 }],
+            assets: [],
+          }),
         })
 
         const composer = new SwapComposer({
           quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -956,15 +953,17 @@ describe('SwapComposer', () => {
         }
 
         // Mock that user is not opted in
-        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
-          appsLocalState: [],
-          assets: [],
+        mockAlgodClient.accountInformation = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            appsLocalState: [],
+            assets: [],
+          }),
         })
 
         const composer = new SwapComposer({
           quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -992,15 +991,17 @@ describe('SwapComposer', () => {
         }
 
         // Mock that user is opted into one of the three apps
-        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
-          appsLocalState: [{ id: 789012 }],
-          assets: [],
+        mockAlgodClient.accountInformation = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            appsLocalState: [{ id: 789012 }],
+            assets: [],
+          }),
         })
 
         const composer = new SwapComposer({
           quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -1028,15 +1029,17 @@ describe('SwapComposer', () => {
         }
 
         // Mock that appsLocalState is undefined
-        mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
-          appsLocalState: undefined,
-          assets: [],
+        mockAlgodClient.accountInformation = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            appsLocalState: undefined,
+            assets: [],
+          }),
         })
 
         const composer = new SwapComposer({
           quote: quote as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -1063,7 +1066,7 @@ describe('SwapComposer', () => {
         const composer = new SwapComposer({
           quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -1097,7 +1100,7 @@ describe('SwapComposer', () => {
         const composer = new SwapComposer({
           quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: mockDeflexTxns,
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -1119,7 +1122,7 @@ describe('SwapComposer', () => {
         const composer = new SwapComposer({
           quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -1136,7 +1139,7 @@ describe('SwapComposer', () => {
             new SwapComposer({
               quote: createMockQuote() as FetchQuoteResponse,
               deflexTxns: [],
-              algorand: mockAlgorand,
+              algodClient: mockAlgodClient,
               address: validAddress,
               signer: async (txns: algosdk.Transaction[]) =>
                 txns.map(() => new Uint8Array(0)),
@@ -1172,7 +1175,7 @@ describe('SwapComposer', () => {
         const composer = new SwapComposer({
           quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexLsigTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -1206,7 +1209,7 @@ describe('SwapComposer', () => {
         const composer = new SwapComposer({
           quote: createMockQuote() as FetchQuoteResponse,
           deflexTxns: [mockDeflexSkTxn],
-          algorand: mockAlgorand,
+          algodClient: mockAlgodClient,
           address: validAddress,
           signer: async (txns: algosdk.Transaction[]) =>
             txns.map(() => new Uint8Array(0)),
@@ -1235,7 +1238,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),
@@ -1272,7 +1275,7 @@ describe('SwapComposer', () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [mockDeflexTxn],
-        algorand: mockAlgorand,
+        algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
           txns.map(() => new Uint8Array(0)),

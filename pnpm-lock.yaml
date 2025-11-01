@@ -152,9 +152,6 @@ importers:
       '@algorandfoundation/algokit-utils':
         specifier: 9.1.2
         version: 9.1.2(algosdk@3.5.2)
-      algosdk:
-        specifier: 3.5.2
-        version: 3.5.2
     devDependencies:
       '@types/node':
         specifier: 24.9.1
@@ -162,6 +159,9 @@ importers:
       '@vitest/coverage-v8':
         specifier: 4.0.5
         version: 4.0.5(vitest@4.0.5(@types/node@24.9.1)(jiti@2.6.1))
+      algosdk:
+        specifier: 3.5.2
+        version: 3.5.2
       publint:
         specifier: 0.3.15
         version: 0.3.15
