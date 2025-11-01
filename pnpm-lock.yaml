@@ -72,6 +72,9 @@ importers:
       '@txnlab/use-wallet-react':
         specifier: ^4.3.1
         version: 4.3.1(@blockshake/defly-connect@1.2.1(algosdk@3.5.2))(@perawallet/connect@1.4.2(algosdk@3.5.2))(algosdk@3.5.2)(lute-connect@1.6.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      algosdk:
+        specifier: ^3.5.2
+        version: 3.5.2
       lute-connect:
         specifier: ^1.6.3
         version: 1.6.3
@@ -118,6 +121,9 @@ importers:
       '@txnlab/use-wallet-react':
         specifier: ^4.3.1
         version: 4.3.1(@blockshake/defly-connect@1.2.1(algosdk@3.5.2))(@perawallet/connect@1.4.2(algosdk@3.5.2))(algosdk@3.5.2)(lute-connect@1.6.3)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      algosdk:
+        specifier: ^3.5.2
+        version: 3.5.2
       lute-connect:
         specifier: ^1.6.3
         version: 1.6.3
