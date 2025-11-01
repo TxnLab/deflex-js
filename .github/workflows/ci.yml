@@ -43,3 +43,6 @@ jobs:
 
       - name: Test
         run: pnpm run test
+
+      - name: Build examples
+        run: pnpm --filter "./examples/**" run build
