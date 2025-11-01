@@ -10,19 +10,28 @@
     {
       "description": "Group GitHub Actions updates",
       "matchManagers": ["github-actions"],
-      "groupName": "GitHub Actions"
+      "groupName": "GitHub Actions",
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
     },
     {
       "description": "Group all non-major npm dependencies",
       "matchManagers": ["npm"],
       "matchUpdateTypes": ["minor", "patch"],
-      "groupName": "all non-major dependencies"
+      "groupName": "all non-major dependencies",
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
     },
     {
       "description": "Separate PR for pnpm package manager updates",
       "matchManagers": ["npm"],
       "matchPackageNames": ["pnpm"],
-      "groupName": "pnpm"
+      "groupName": "pnpm",
+      "automerge": true,
+      "automergeType": "pr",
+      "automergeStrategy": "squash"
     },
     {
       "description": "Pin Node.js and @types/node to v22.x",
