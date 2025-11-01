@@ -57,6 +57,7 @@ All examples use the local SDK package via pnpm workspaces. This means changes t
 ### Prerequisites
 
 - **Deflex API Key** - Request an API key by emailing [support@txnlab.dev](mailto:support@txnlab.dev)
+- algosdk 3.0.0 or later (peer dependency)
 - Node.js >= 20
 - pnpm 10.20.0 or later
 

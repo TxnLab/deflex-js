@@ -1,27 +1,8 @@
-import { AlgorandClient } from '@algorandfoundation/algokit-utils'
 import algosdk from 'algosdk'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { DeflexClient } from '../src/client'
 import { Protocol } from '../src/constants'
 import type { FetchQuoteResponse, FetchSwapTxnsResponse } from '../src/types'
-
-// Mock the AlgorandClient
-vi.mock('@algorandfoundation/algokit-utils', () => ({
-  AlgorandClient: {
-    fromConfig: vi.fn(() => ({
-      account: {
-        getInformation: vi.fn(),
-      },
-      client: {
-        algod: {
-          getTransactionParams: vi.fn(() => ({
-            do: vi.fn(),
-          })),
-        },
-      },
-    })),
-  },
-}))
 
 // Mock the request utility
 vi.mock('../src/utils', () => ({
@@ -246,13 +227,15 @@ describe('DeflexClient', () => {
         autoOptIn: true,
       })
 
-      const mockAlgorand = AlgorandClient.fromConfig({
-        algodConfig: { server: '', port: 443, token: '' },
+      const mockGetInfo = vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({
+          assets: [],
+        }),
       })
-      const mockGetInfo = vi.fn().mockResolvedValue({
-        assets: [],
-      })
-      mockAlgorand.account.getInformation = mockGetInfo
+
+      const mockAlgodClient = {
+        accountInformation: mockGetInfo,
+      } as any
 
       const mockQuote: Partial<FetchQuoteResponse> = {
         fromASAID: 0,
@@ -268,8 +251,8 @@ describe('DeflexClient', () => {
       const validAddress =
         '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
 
-      // Override the algorand instance for this test
-      ;(clientWithAutoOptIn as any).algorand = mockAlgorand
+      // Override the algodClient instance for this test
+      ;(clientWithAutoOptIn as any).algodClient = mockAlgodClient
 
       await clientWithAutoOptIn.fetchQuote({
         fromASAID: 0,
@@ -381,14 +364,17 @@ describe('DeflexClient', () => {
           autoOptIn: true,
         })
 
-        const mockAlgorand = AlgorandClient.fromConfig({
-          algodConfig: { server: '', port: 443, token: '' },
+        const mockGetInfo = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            assets: [], // Asset not opted in
+          }),
         })
-        const mockGetInfo = vi.fn().mockResolvedValue({
-          assets: [], // Asset not opted in
-        })
-        mockAlgorand.account.getInformation = mockGetInfo
-        ;(clientWithAutoOptIn as any).algorand = mockAlgorand
+
+        const mockAlgodClient = {
+          accountInformation: mockGetInfo,
+        } as any
+
+        ;(clientWithAutoOptIn as any).algodClient = mockAlgodClient
 
         const mockQuote: Partial<FetchQuoteResponse> = {
           fromASAID: 0,
@@ -422,14 +408,17 @@ describe('DeflexClient', () => {
           autoOptIn: true,
         })
 
-        const mockAlgorand = AlgorandClient.fromConfig({
-          algodConfig: { server: '', port: 443, token: '' },
+        const mockGetInfo = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            assets: [{ assetId: BigInt(31566704), amount: BigInt(0) }], // Asset already opted in
+          }),
         })
-        const mockGetInfo = vi.fn().mockResolvedValue({
-          assets: [{ assetId: BigInt(31566704), amount: BigInt(0) }], // Asset already opted in
-        })
-        mockAlgorand.account.getInformation = mockGetInfo
-        ;(clientWithAutoOptIn as any).algorand = mockAlgorand
+
+        const mockAlgodClient = {
+          accountInformation: mockGetInfo,
+        } as any
+
+        ;(clientWithAutoOptIn as any).algodClient = mockAlgodClient
 
         const mockQuote: Partial<FetchQuoteResponse> = {
           fromASAID: 0,
@@ -500,12 +489,13 @@ describe('DeflexClient', () => {
           autoOptIn: true,
         })
 
-        const mockAlgorand = AlgorandClient.fromConfig({
-          algodConfig: { server: '', port: 443, token: '' },
-        })
         const mockGetInfo = vi.fn()
-        mockAlgorand.account.getInformation = mockGetInfo
-        ;(clientWithAutoOptIn as any).algorand = mockAlgorand
+
+        const mockAlgodClient = {
+          accountInformation: mockGetInfo,
+        } as any
+
+        ;(clientWithAutoOptIn as any).algodClient = mockAlgodClient
 
         const mockQuote: Partial<FetchQuoteResponse> = {
           fromASAID: 0,
@@ -545,13 +535,17 @@ describe('DeflexClient', () => {
     })
 
     it('should return false for ALGO (asset ID 0)', async () => {
-      const mockAlgorand = AlgorandClient.fromConfig({
-        algodConfig: { server: '', port: 443, token: '' },
+      const mockGetInfo = vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({
+          assets: [],
+        }),
       })
-      mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
-        assets: [],
-      })
-      ;(client as any).algorand = mockAlgorand
+
+      const mockAlgodClient = {
+        accountInformation: mockGetInfo,
+      } as any
+
+      ;(client as any).algodClient = mockAlgodClient
 
       const validAddress =
         '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
@@ -561,13 +555,17 @@ describe('DeflexClient', () => {
     })
 
     it('should return true when asset is not opted in', async () => {
-      const mockAlgorand = AlgorandClient.fromConfig({
-        algodConfig: { server: '', port: 443, token: '' },
+      const mockGetInfo = vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({
+          assets: [],
+        }),
       })
-      mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
-        assets: [],
-      })
-      ;(client as any).algorand = mockAlgorand
+
+      const mockAlgodClient = {
+        accountInformation: mockGetInfo,
+      } as any
+
+      ;(client as any).algodClient = mockAlgodClient
 
       const validAddress =
         '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'
@@ -577,13 +575,17 @@ describe('DeflexClient', () => {
     })
 
     it('should return false when asset is already opted in', async () => {
-      const mockAlgorand = AlgorandClient.fromConfig({
-        algodConfig: { server: '', port: 443, token: '' },
+      const mockGetInfo = vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({
+          assets: [{ assetId: BigInt(31566704), amount: BigInt(0) }],
+        }),
       })
-      mockAlgorand.account.getInformation = vi.fn().mockResolvedValue({
-        assets: [{ assetId: BigInt(31566704), amount: BigInt(0) }],
-      })
-      ;(client as any).algorand = mockAlgorand
+
+      const mockAlgodClient = {
+        accountInformation: mockGetInfo,
+      } as any
+
+      ;(client as any).algodClient = mockAlgodClient
 
       const validAddress =
         '5BPCE3UNCPAIONAOMY4CVUXNU27SOCXYE4QSXEQFYXV6ORFQIKVTOR6ZTM'

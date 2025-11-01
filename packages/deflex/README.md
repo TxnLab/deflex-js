@@ -5,12 +5,15 @@ TypeScript/JavaScript SDK for [Deflex Order Router](https://txnlab.gitbook.io/de
 ## Prerequisites
 
 - **Deflex API Key** - Request an API key by emailing [support@txnlab.dev](mailto:support@txnlab.dev)
+- algosdk 3.0.0 or later
 
 ## Installation
 
 ```bash
-npm install @txnlab/deflex
+npm install @txnlab/deflex algosdk
 ```
+
+> **Note**: `algosdk` is a peer dependency and must be installed alongside `@txnlab/deflex`.
 
 ## Quick Start
 

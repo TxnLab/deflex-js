@@ -1,5 +1,4 @@
-import { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import { isValidAddress, type TransactionSigner } from 'algosdk'
+import { Algodv2, isValidAddress, type TransactionSigner } from 'algosdk'
 import { SwapComposer, type SignerFunction } from './composer'
 import {
   DEFAULT_ALGOD_PORT,
@@ -55,7 +54,7 @@ import type {
  */
 export class DeflexClient {
   private readonly config: DeflexConfig
-  private readonly algorand: AlgorandClient
+  private readonly algodClient: Algodv2
 
   /**
    * Create a new DeflexClient instance
@@ -85,14 +84,12 @@ export class DeflexClient {
       autoOptIn: config.autoOptIn ?? DEFAULT_AUTO_OPT_IN,
     }
 
-    // Create AlgorandClient
-    this.algorand = AlgorandClient.fromConfig({
-      algodConfig: {
-        server: this.config.algodUri,
-        port: this.config.algodPort,
-        token: this.config.algodToken,
-      },
-    })
+    // Create Algodv2 client
+    this.algodClient = new Algodv2(
+      this.config.algodToken,
+      this.config.algodUri,
+      this.config.algodPort,
+    )
   }
 
   /**
@@ -216,7 +213,7 @@ export class DeflexClient {
     assetId: number | bigint,
   ): Promise<boolean> {
     // Fetch account information
-    const accountInfo = await this.algorand.account.getInformation(address)
+    const accountInfo = await this.algodClient.accountInformation(address).do()
 
     // Check if asset opt-in is required
     return (
@@ -377,7 +374,7 @@ export class DeflexClient {
     const composer = new SwapComposer({
       quote,
       deflexTxns: swapResponse.txns,
-      algorand: this.algorand,
+      algodClient: this.algodClient,
       address,
       signer,
     })

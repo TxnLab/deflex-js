@@ -55,13 +55,13 @@
   "devDependencies": {
     "@types/node": "24.9.1",
     "@vitest/coverage-v8": "4.0.5",
+    "algosdk": "3.5.2",
     "publint": "0.3.15",
     "tsdown": "0.15.12",
     "typescript": "5.9.3",
     "vitest": "4.0.5"
   },
-  "dependencies": {
-    "@algorandfoundation/algokit-utils": "9.1.2",
-    "algosdk": "3.5.2"
+  "peerDependencies": {
+    "algosdk": "^3.0.0"
   }
 }

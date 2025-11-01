@@ -9,6 +9,8 @@ import {
   msgpackRawDecode,
   Transaction,
   waitForConfirmation,
+  type Algodv2,
+  type TransactionSigner,
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
 import type {
@@ -18,8 +20,6 @@ import type {
   DeflexSignature,
   DeflexQuote,
 } from './types'
-import type { AlgorandClient } from '@algorandfoundation/algokit-utils'
-import type { TransactionSigner } from 'algosdk'
 
 /**
  * A transaction signer function that supports both standard algosdk.TransactionSigner
@@ -62,8 +62,8 @@ export interface SwapComposerConfig {
   readonly quote: FetchQuoteResponse | DeflexQuote
   /** The swap transactions from fetchSwapTransactions() */
   readonly deflexTxns: DeflexTransaction[]
-  /** AlgorandClient instance for blockchain operations */
-  readonly algorand: AlgorandClient
+  /** Algodv2 client instance */
+  readonly algodClient: Algodv2
   /** The address of the account that will sign transactions */
   readonly address: string
   /** Transaction signer function */
@@ -100,7 +100,7 @@ export class SwapComposer {
 
   private readonly requiredAppOptIns: number[]
   private readonly deflexTxns: DeflexTransaction[]
-  private readonly algorand: AlgorandClient
+  private readonly algodClient: Algodv2
   private readonly address: string
   private readonly signer: TransactionSigner | SignerFunction
 
@@ -113,7 +113,7 @@ export class SwapComposer {
    * @param config - Configuration for the composer
    * @param config.requiredAppOptIns - The quote response from fetchQuote()
    * @param config.deflexTxns - The swap transactions from fetchSwapTransactions()
-   * @param config.algorand - AlgorandClient instance for blockchain operations
+   * @param config.algodClient - Algodv2 client instance
    * @param config.address - The address of the account that will sign transactions
    * @param config.signer - Transaction signer function
    */
@@ -128,8 +128,8 @@ export class SwapComposer {
     if (config.deflexTxns.length === 0) {
       throw new Error('Swap transactions array cannot be empty')
     }
-    if (!config.algorand) {
-      throw new Error('AlgorandClient instance is required')
+    if (!config.algodClient) {
+      throw new Error('Algodv2 client instance is required')
     }
     if (!config.signer) {
       throw new Error('Signer is required')
@@ -137,7 +137,7 @@ export class SwapComposer {
 
     this.requiredAppOptIns = config.quote.requiredAppOptIns
     this.deflexTxns = config.deflexTxns
-    this.algorand = config.algorand
+    this.algodClient = config.algodClient
     this.address = this.validateAddress(config.address)
     this.signer = config.signer
   }
@@ -337,7 +337,7 @@ export class SwapComposer {
     }
 
     const stxns = await this.sign()
-    await this.algorand.client.algod.sendRawTransaction(stxns).do()
+    await this.algodClient.sendRawTransaction(stxns).do()
 
     this.status = SwapComposerStatus.SUBMITTED
     return this.txIds
@@ -374,7 +374,7 @@ export class SwapComposer {
     const txIds = await this.submit()
 
     const confirmedTxnInfo = await waitForConfirmation(
-      this.algorand.client.algod,
+      this.algodClient,
       txIds[0]!,
       waitRounds,
     )
@@ -384,7 +384,7 @@ export class SwapComposer {
     const confirmedRound = confirmedTxnInfo.confirmedRound!
 
     return {
-      confirmedRound,
+      confirmedRound: BigInt(confirmedRound),
       txIds,
     }
   }
@@ -447,7 +447,9 @@ export class SwapComposer {
    */
   private async processRequiredAppOptIns(): Promise<SwapTransaction[]> {
     // Fetch account information
-    const accountInfo = await this.algorand.account.getInformation(this.address)
+    const accountInfo = await this.algodClient
+      .accountInformation(this.address)
+      .do()
 
     // Check app opt-ins
     const userApps =
@@ -459,9 +461,7 @@ export class SwapComposer {
     // Create opt-in transactions if needed
     const appOptInTxns: Transaction[] = []
     if (appsToOptIn.length > 0) {
-      const suggestedParams = await this.algorand.client.algod
-        .getTransactionParams()
-        .do()
+      const suggestedParams = await this.algodClient.getTransactionParams().do()
 
       for (const appId of appsToOptIn) {
         const optInTxn = makeApplicationOptInTxnFromObject({
