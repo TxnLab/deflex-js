@@ -34,8 +34,15 @@
       "automergeStrategy": "squash"
     },
     {
-      "description": "Pin Node.js and @types/node to v22.x",
-      "matchPackageNames": ["node", "@types/node"],
+      "description": "Pin Node.js to v22.x in GitHub Actions",
+      "matchManagers": ["github-actions"],
+      "matchPackageNames": ["node"],
+      "allowedVersions": "22.x"
+    },
+    {
+      "description": "Pin @types/node to v22.x",
+      "matchManagers": ["npm"],
+      "matchPackageNames": ["@types/node"],
       "allowedVersions": "22.x"
     },
     {
