@@ -19,6 +19,7 @@ import type {
   DeflexTransaction,
   DeflexSignature,
   DeflexQuote,
+  MethodCall,
 } from './types'
 
 /**
@@ -217,6 +218,17 @@ export class SwapComposer {
     }
 
     this.swapTransactionsAdded = true
+    return this
+  }
+
+  /**
+   * Add a method call to the atomic group
+   *
+   * @param methodCall - The method call to add
+   * @returns This composer instance for chaining
+   */
+  addMethodCall(methodCall: MethodCall): this {
+    this.atc.addMethodCall(methodCall)
     return this
   }
 
