@@ -81,12 +81,12 @@ export interface SwapComposerConfig {
  * @example
  * ```typescript
  * const quote = await deflex.fetchQuote({ ... })
- * const composer = await deflex.newSwap({ quote, address, slippage })
+ * const composer = await deflex.newSwap({ quote, address, slippage, signer })
  *
  * await composer
  *   .addTransaction(customTxn)
  *   .addSwapTransactions()
- *   .execute(signer)
+ *   .execute()
  * ```
  */
 export class SwapComposer {
@@ -245,12 +245,14 @@ export class SwapComposer {
    *
    * @example
    * ```typescript
-   * const composer = await deflex.newSwap({ quote, address, slippage })
+   * const composer = await deflex.newSwap({ quote, address, slippage, signer })
    * composer.addTransaction(customTxn)
    *
    * // Build the group to inspect transactions before signing
    * const txnsWithSigners = composer.buildGroup()
-   * console.log(`Group contains ${txnsWithSigners.length} transactions`)
+   * console.log('Group ID:', txnsWithSigners[0].txn.group)
+   * console.log('Group length:', txnsWithSigners.length)
+   * console.log('Status:', composer.getStatus()) // BUILT
    * ```
    */
   buildGroup(): TransactionWithSigner[] {
