@@ -327,6 +327,188 @@ describe('SwapComposer', () => {
     })
   })
 
+  describe('addMethodCall', () => {
+    it('should use methodCall.signer if provided', () => {
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async () => [new Uint8Array([1])],
+      })
+
+      const customSigner = async () => [new Uint8Array([2])]
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+        signer: customSigner,
+      }
+
+      const atcAddMethodCallSpy = vi.spyOn(
+        (composer as any).atc,
+        'addMethodCall',
+      )
+
+      composer.addMethodCall(methodCall)
+
+      // Verify the methodCall.signer was used
+      expect(atcAddMethodCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signer: customSigner,
+        }),
+      )
+
+      atcAddMethodCallSpy.mockRestore()
+    })
+
+    it('should use parameter signer if methodCall.signer not provided', () => {
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async () => [new Uint8Array([1])],
+      })
+
+      const paramSigner = async () => [new Uint8Array([2])]
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+      }
+
+      const atcAddMethodCallSpy = vi.spyOn(
+        (composer as any).atc,
+        'addMethodCall',
+      )
+
+      composer.addMethodCall(methodCall, paramSigner)
+
+      // Verify the parameter signer was used
+      expect(atcAddMethodCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signer: paramSigner,
+        }),
+      )
+
+      atcAddMethodCallSpy.mockRestore()
+    })
+
+    it('should use constructor signer if neither methodCall.signer nor parameter provided', () => {
+      const constructorSigner = async () => [new Uint8Array([1])]
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: constructorSigner,
+      })
+
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+      }
+
+      const atcAddMethodCallSpy = vi.spyOn(
+        (composer as any).atc,
+        'addMethodCall',
+      )
+
+      composer.addMethodCall(methodCall)
+
+      // Verify the constructor's defaultSigner was used
+      expect(atcAddMethodCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signer: (composer as any).defaultSigner,
+        }),
+      )
+
+      atcAddMethodCallSpy.mockRestore()
+    })
+
+    it('should return this for method chaining', () => {
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async () => [new Uint8Array([1])],
+      })
+
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+      }
+
+      const result = composer.addMethodCall(methodCall)
+
+      expect(result).toBe(composer)
+    })
+  })
+
   describe('addSwapTransactions', () => {
     it('should add swap transactions to the group', async () => {
       const mockDeflexTxn: DeflexTransaction = {
