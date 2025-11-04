@@ -180,6 +180,7 @@ await swap.execute()
 ```
 
 The signer function supports two return patterns:
+
 - **Pattern 1** (Pera, Defly, algosdk): Returns only the signed transactions as `Uint8Array[]`
 - **Pattern 2** (Lute, ARC-1 compliant): Returns an array matching the transaction group length with `null` for unsigned transactions as `(Uint8Array | null)[]`
 
@@ -187,17 +188,25 @@ Both patterns are automatically handled by the SDK.
 
 ### Advanced Transaction Composition
 
-Build the transaction group by adding custom transactions before or after the swap using the [`SwapComposer`](#swapcomposer) instance:
+Build the transaction group by adding custom transactions and ABI method calls before or after the swap using the [`SwapComposer`](#swapcomposer) instance:
 
 ```typescript
-import { Transaction } from 'algosdk'
+import { ABIMethod, Transaction } from 'algosdk'
 import { useWallet } from '@txnlab/use-wallet-*' // react, vue, solid, or svelte
 
 const { activeAddress, transactionSigner } = useWallet()
 
 // Create your custom transactions
-const customTxn1 = new Transaction({...})
-const customTxn2 = new Transaction({...})
+const customTxn = new Transaction({...})
+
+// Define an ABI method call
+const methodCall = {
+  appID: 123456,
+  method: new ABIMethod({...}),
+  methodArgs: [...],
+  sender: activeAddress,
+  suggestedParams: await algodClient.getTransactionParams().do(),
+}
 
 // Build and execute the transaction group
 const swap = await deflex.newSwap({
@@ -208,9 +217,9 @@ const swap = await deflex.newSwap({
 })
 
 const result = await swap
-  .addTransaction(customTxn1)     // Add transaction before swap
+  .addTransaction(customTxn)      // Add transaction before swap
   .addSwapTransactions()          // Add swap transactions
-  .addTransaction(customTxn2)     // Add transaction after swap
+  .addMethodCall(methodCall)      // Add ABI method call after swap
   .execute()                      // Sign and execute entire group
 ```
 
@@ -316,11 +325,11 @@ Returns a [`SwapComposer`](#swapcomposer) instance for building and executing sw
 async newSwap(config: SwapComposerConfig): Promise<SwapComposer>
 ```
 
-| Parameter  | Description                                       | Type                                                                                                                                    |
-| ---------- | ------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- |
-| `quote`    | Quote result or raw API response                  | `DeflexQuote \| FetchQuoteResponse`                                                                                                     |
-| `address`  | Signer address                                    | `string`                                                                                                                                |
-| `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                                                                                                                                |
+| Parameter  | Description                                       | Type                                                                                                                   |
+| ---------- | ------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| `quote`    | Quote result or raw API response                  | `DeflexQuote \| FetchQuoteResponse`                                                                                    |
+| `address`  | Signer address                                    | `string`                                                                                                               |
+| `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                                                                                                               |
 | `signer`   | Transaction signer function                       | `algosdk.TransactionSigner \| ((txnGroup: Transaction[], indexesToSign: number[]) => Promise<(Uint8Array \| null)[]>)` |
 
 #### DeflexClient.needsAssetOptIn()
@@ -374,15 +383,17 @@ Plain object returned by [`newQuote()`](#deflexclientnewquote). Extends the raw 
 
 Builder for constructing and executing atomic swap transaction groups, returned by [`newSwap()`](#deflexclientnewswap).
 
-| Method                        | Description                                                                    | Parameters                         | Returns                               |
-| ----------------------------- | ------------------------------------------------------------------------------ | ---------------------------------- | ------------------------------------- |
-| `addTransaction(transaction)` | Add a transaction to the atomic group                                          | `transaction: algosdk.Transaction` | `SwapComposer`                        |
-| `addSwapTransactions()`       | Add swap transactions to the group (includes required app opt-ins)             | None                               | `Promise<SwapComposer>`               |
-| `sign()`                      | Sign the transaction group                                                     | None                               | `Promise<Uint8Array[]>`               |
-| `submit()`                    | Sign and submit the transaction group                                          | None                               | `Promise<string[]>`                   |
-| `execute(waitRounds?)`        | Sign, submit, and wait for confirmation                                        | `waitRounds?: number` (default: 4) | `Promise<PendingTransactionResponse>` |
-| `getStatus()`                 | Get current status: `BUILDING`, `BUILT`, `SIGNED`, `SUBMITTED`, or `COMMITTED` | None                               | `ComposerStatus`                      |
-| `count()`                     | Get the number of transactions in the group                                    | None                               | `number`                              |
+| Method                                 | Description                                                                    | Parameters                                                     | Returns                               |
+| -------------------------------------- | ------------------------------------------------------------------------------ | -------------------------------------------------------------- | ------------------------------------- |
+| `addTransaction(transaction, signer?)` | Add a transaction to the atomic group                                          | `transaction: algosdk.Transaction, signer?: TransactionSigner` | `SwapComposer`                        |
+| `addMethodCall(methodCall, signer?)`   | Add an ABI method call to the atomic group                                     | `methodCall: MethodCall, signer?: TransactionSigner`           | `SwapComposer`                        |
+| `addSwapTransactions()`                | Add swap transactions to the group (includes required app opt-ins)             | None                                                           | `Promise<SwapComposer>`               |
+| `buildGroup()`                         | Build the transaction group and assign group IDs                               | None                                                           | `TransactionWithSigner[]`             |
+| `sign()`                               | Sign the transaction group                                                     | None                                                           | `Promise<Uint8Array[]>`               |
+| `submit()`                             | Sign and submit the transaction group                                          | None                                                           | `Promise<string[]>` (transaction IDs) |
+| `execute(waitRounds?)`                 | Sign, submit, and wait for confirmation                                        | `waitRounds?: number` (default: 4)                             | `Promise<PendingTransactionResponse>` |
+| `getStatus()`                          | Get current status: `BUILDING`, `BUILT`, `SIGNED`, `SUBMITTED`, or `COMMITTED` | None                                                           | `SwapComposerStatus`                  |
+| `count()`                              | Get the number of transactions in the group                                    | None                                                           | `number`                              |
 
 ## Documentation
 
