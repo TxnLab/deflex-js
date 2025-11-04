@@ -1,3 +1,10 @@
+# [1.2.0](https://github.com/TxnLab/deflex-js/compare/v1.1.0...v1.2.0) (2025-11-04)
+
+
+### Features
+
+* refactor SwapComposer to use AtomicTransactionComposer internally ([#17](https://github.com/TxnLab/deflex-js/issues/17)) ([cebb16c](https://github.com/TxnLab/deflex-js/commit/cebb16c4f764ecb563915fadf5699b394d579b72))
+
 # [1.1.0](https://github.com/TxnLab/deflex-js/compare/v1.0.0...v1.1.0) (2025-11-01)
 
 
