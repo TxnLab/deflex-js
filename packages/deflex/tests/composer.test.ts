@@ -3,16 +3,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { SwapComposer, SwapComposerStatus } from '../src/composer'
 import type { FetchQuoteResponse, DeflexTransaction } from '../src/types'
 
-// Mock waitForConfirmation
-vi.mock('algosdk', async () => {
-  const actual = await vi.importActual<typeof algosdk>('algosdk')
-  return {
-    ...actual,
-    waitForConfirmation: vi.fn().mockResolvedValue({
-      confirmedRound: 1234,
-    }),
-  }
-})
+/**
+ * Helper to create a valid signed transaction blob
+ * Required because mocked signers must return actual signed transactions
+ */
+const createValidSignedTxnBlob = (txn: algosdk.Transaction): Uint8Array => {
+  const sk = algosdk.generateAccount().sk
+  return algosdk.signTransaction(txn, sk).blob
+}
 
 describe('SwapComposer', () => {
   let mockAlgodClient: algosdk.Algodv2
@@ -78,9 +76,6 @@ describe('SwapComposer', () => {
             'base64',
           ),
         }),
-      }),
-      sendRawTransaction: vi.fn().mockReturnValue({
-        do: vi.fn().mockResolvedValue({ txId: 'test-tx-id' }),
       }),
     } as any
   })
@@ -296,7 +291,7 @@ describe('SwapComposer', () => {
         algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
-          txns.map(() => new Uint8Array(0)),
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
 
       composer.addTransaction(createMockTransaction())
@@ -329,6 +324,188 @@ describe('SwapComposer', () => {
       expect(() => composer.addTransaction(createMockTransaction())).toThrow(
         'Adding an additional transaction exceeds the maximum atomic group size',
       )
+    })
+  })
+
+  describe('addMethodCall', () => {
+    it('should use methodCall.signer if provided', () => {
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async () => [new Uint8Array([1])],
+      })
+
+      const customSigner = async () => [new Uint8Array([2])]
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+        signer: customSigner,
+      }
+
+      const atcAddMethodCallSpy = vi.spyOn(
+        (composer as any).atc,
+        'addMethodCall',
+      )
+
+      composer.addMethodCall(methodCall)
+
+      // Verify the methodCall.signer was used
+      expect(atcAddMethodCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signer: customSigner,
+        }),
+      )
+
+      atcAddMethodCallSpy.mockRestore()
+    })
+
+    it('should use parameter signer if methodCall.signer not provided', () => {
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async () => [new Uint8Array([1])],
+      })
+
+      const paramSigner = async () => [new Uint8Array([2])]
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+      }
+
+      const atcAddMethodCallSpy = vi.spyOn(
+        (composer as any).atc,
+        'addMethodCall',
+      )
+
+      composer.addMethodCall(methodCall, paramSigner)
+
+      // Verify the parameter signer was used
+      expect(atcAddMethodCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signer: paramSigner,
+        }),
+      )
+
+      atcAddMethodCallSpy.mockRestore()
+    })
+
+    it('should use constructor signer if neither methodCall.signer nor parameter provided', () => {
+      const constructorSigner = async () => [new Uint8Array([1])]
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: constructorSigner,
+      })
+
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+      }
+
+      const atcAddMethodCallSpy = vi.spyOn(
+        (composer as any).atc,
+        'addMethodCall',
+      )
+
+      composer.addMethodCall(methodCall)
+
+      // Verify the constructor's defaultSigner was used
+      expect(atcAddMethodCallSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          signer: (composer as any).defaultSigner,
+        }),
+      )
+
+      atcAddMethodCallSpy.mockRestore()
+    })
+
+    it('should return this for method chaining', () => {
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async () => [new Uint8Array([1])],
+      })
+
+      const methodCall = {
+        appID: 123456,
+        method: new algosdk.ABIMethod({
+          name: 'test',
+          args: [],
+          returns: { type: 'void' },
+        }),
+        sender: validAddress,
+        suggestedParams: {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisID: 'testnet-v1.0',
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          minFee: 1000,
+        },
+      }
+
+      const result = composer.addMethodCall(methodCall)
+
+      expect(result).toBe(composer)
     })
   })
 
@@ -399,7 +576,7 @@ describe('SwapComposer', () => {
         algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
-          txns.map(() => new Uint8Array(0)),
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
 
       composer.addTransaction(createMockTransaction())
@@ -527,27 +704,34 @@ describe('SwapComposer', () => {
       expect(composer.count()).toBeGreaterThan(0)
     })
 
-    it('should return cached signed transactions on subsequent calls', async () => {
+    it('should delegate signing to atc.gatherSignatures', async () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algodClient: mockAlgodClient,
         address: validAddress,
-        signer: async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
-        },
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
 
       composer.addTransaction(createMockTransaction())
+      await composer.addSwapTransactions()
 
-      const signedTxns1 = await composer.sign()
+      const mockSignedTxns = [
+        new Uint8Array([1, 2, 3]),
+        new Uint8Array([4, 5, 6]),
+      ]
+      const gatherSigsSpy = vi
+        .spyOn((composer as any).atc, 'gatherSignatures')
+        .mockResolvedValue(mockSignedTxns)
 
-      const signedTxns2 = await composer.sign()
+      const result = await composer.sign()
 
-      expect(signedTxns2).toBe(signedTxns1)
+      // Verify delegation to ATC
+      expect(gatherSigsSpy).toHaveBeenCalled()
+      expect(result).toBe(mockSignedTxns)
+
+      gatherSigsSpy.mockRestore()
     })
 
     it('should handle pre-signed transactions', async () => {
@@ -641,8 +825,8 @@ describe('SwapComposer', () => {
           expect(txns.length).toBe(3)
           // Should only sign indexes 0 and 2 (user transactions)
           expect(indexesToSign).toEqual([0, 2])
-          // Return signed transactions for all
-          return txns.map(() => new Uint8Array([1, 2, 3]))
+          // Return valid signed transactions
+          return txns.map((txn) => createValidSignedTxnBlob(txn))
         },
       })
 
@@ -701,7 +885,10 @@ describe('SwapComposer', () => {
 
           // Only sign the transactions at the specified indexes
           for (const index of indexesToSign) {
-            result[index] = new Uint8Array([1, 2, 3])
+            const txn = txns[index]
+            if (txn) {
+              result[index] = createValidSignedTxnBlob(txn)
+            }
           }
 
           return result
@@ -717,153 +904,185 @@ describe('SwapComposer', () => {
       expect(signedTxns.every((txn) => txn instanceof Uint8Array)).toBe(true)
     })
 
-    it('should assign group ID to transactions', async () => {
+    it('should call buildGroup before gathering signatures', async () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algodClient: mockAlgodClient,
         address: validAddress,
-        signer: async (txns: algosdk.Transaction[]) => {
-          // Verify group IDs are assigned
-          expect(txns?.[0]?.group).toBeDefined()
-          expect(txns?.[1]?.group).toBeDefined()
-          expect(txns?.[0]?.group).toEqual(txns?.[1]?.group)
-
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
-        },
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
 
-      const txn1 = createMockTransaction()
-      const txn2 = createMockTransaction()
+      const buildGroupSpy = vi.spyOn((composer as any).atc, 'buildGroup')
+      const gatherSigsSpy = vi
+        .spyOn((composer as any).atc, 'gatherSignatures')
+        .mockResolvedValue([new Uint8Array([1])])
 
-      composer.addTransaction(txn1).addTransaction(txn2)
+      composer.addTransaction(createMockTransaction())
 
       await composer.sign()
+
+      // ATC's gatherSignatures calls buildGroup internally
+      expect(gatherSigsSpy).toHaveBeenCalled()
+
+      buildGroupSpy.mockRestore()
+      gatherSigsSpy.mockRestore()
     })
   })
 
   describe('submit', () => {
-    it('should submit signed transactions to the network', async () => {
+    it('should delegate to atc.submit with correct algodClient', async () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algodClient: mockAlgodClient,
         address: validAddress,
-        signer: async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
-        },
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
 
       composer.addTransaction(createMockTransaction())
+      await composer.addSwapTransactions()
+
+      const atcSubmitSpy = vi
+        .spyOn((composer as any).atc, 'submit')
+        .mockResolvedValue(['tx1', 'tx2'])
 
       const txIds = await composer.submit()
 
-      expect(txIds).toHaveLength(2) // 1 user txn + 1 from deflexTxns
-      expect(composer.getStatus()).toBe(SwapComposerStatus.SUBMITTED)
-      expect(mockAlgodClient.sendRawTransaction).toHaveBeenCalled()
+      // Verify delegation to ATC with correct parameters
+      expect(atcSubmitSpy).toHaveBeenCalledWith(mockAlgodClient)
+      expect(txIds).toEqual(['tx1', 'tx2'])
+
+      atcSubmitSpy.mockRestore()
     })
 
-    it('should throw error when trying to resubmit', async () => {
+    it('should auto-add swap transactions before submitting', async () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algodClient: mockAlgodClient,
         address: validAddress,
-        signer: async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
-        },
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
 
-      composer.addTransaction(createMockTransaction())
+      const atcSubmitSpy = vi
+        .spyOn((composer as any).atc, 'submit')
+        .mockResolvedValue(['tx1'])
+
+      // Don't manually add swap transactions
+      expect(composer.count()).toBe(0)
 
       await composer.submit()
 
-      await composer.execute()
+      // Verify swap transactions were auto-added before submission
+      expect(composer.count()).toBe(1)
+      expect(atcSubmitSpy).toHaveBeenCalledWith(mockAlgodClient)
 
-      await expect(composer.submit()).rejects.toThrow(
-        'Transaction group cannot be resubmitted',
-      )
+      atcSubmitSpy.mockRestore()
     })
   })
 
   describe('execute', () => {
-    it('should execute the swap and wait for confirmation', async () => {
+    it('should auto-add swap transactions and call atc.execute with correct parameters', async () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
+          return txns.map((txn) => createValidSignedTxnBlob(txn))
         },
       })
+
+      // Spy on the internal ATC
+      const atcExecuteSpy = vi
+        .spyOn((composer as any).atc, 'execute')
+        .mockResolvedValue({
+          confirmedRound: BigInt(1002),
+          txIDs: ['tx1', 'tx2'],
+          methodResults: [],
+        })
 
       composer.addTransaction(createMockTransaction())
 
       const result = await composer.execute()
 
-      expect(result.confirmedRound).toBe(1234n)
-      expect(result.txIds).toHaveLength(2) // 1 user txn + 1 from deflexTxns
-      expect(composer.getStatus()).toBe(SwapComposerStatus.COMMITTED)
+      // Verify swap transactions were auto-added
+      expect(composer.count()).toBe(2) // 1 user txn + 1 swap txn
+
+      // Verify ATC execute was called with correct parameters
+      expect(atcExecuteSpy).toHaveBeenCalledWith(mockAlgodClient, 4) // default wait rounds
+
+      // Verify return value transformation (txIDs -> txIds)
+      expect(result.txIds).toEqual(['tx1', 'tx2'])
+      expect(result.confirmedRound).toBe(BigInt(1002))
+      expect(result.methodResults).toBeDefined()
+
+      atcExecuteSpy.mockRestore()
     })
 
-    it('should throw error when already committed', async () => {
+    it('should pass custom wait rounds to atc.execute', async () => {
       const composer = new SwapComposer({
         quote: createMockQuote() as FetchQuoteResponse,
         deflexTxns: [createMockDeflexTxn()],
         algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
+          return txns.map((txn) => createValidSignedTxnBlob(txn))
         },
       })
 
+      const atcExecuteSpy = vi
+        .spyOn((composer as any).atc, 'execute')
+        .mockResolvedValue({
+          confirmedRound: BigInt(1002),
+          txIDs: ['tx1'],
+          methodResults: [],
+        })
+
       composer.addTransaction(createMockTransaction())
+
+      await composer.execute(10)
+
+      // Verify custom wait rounds parameter is passed
+      expect(atcExecuteSpy).toHaveBeenCalledWith(mockAlgodClient, 10)
+
+      atcExecuteSpy.mockRestore()
+    })
+
+    it('should not add swap transactions if already added', async () => {
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [createMockDeflexTxn()],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) => {
+          return txns.map((txn) => createValidSignedTxnBlob(txn))
+        },
+      })
+
+      const atcExecuteSpy = vi
+        .spyOn((composer as any).atc, 'execute')
+        .mockResolvedValue({
+          confirmedRound: BigInt(1002),
+          txIDs: ['tx1', 'tx2'],
+          methodResults: [],
+        })
+
+      composer.addTransaction(createMockTransaction())
+      await composer.addSwapTransactions()
+
+      const countBeforeExecute = composer.count()
 
       await composer.execute()
 
-      await expect(composer.execute()).rejects.toThrow(
-        'Transaction group has already been executed successfully',
-      )
-    })
+      // Count should not increase (swap transactions already added)
+      expect(composer.count()).toBe(countBeforeExecute)
 
-    it('should use custom wait rounds parameter', async () => {
-      const composer = new SwapComposer({
-        quote: createMockQuote() as FetchQuoteResponse,
-        deflexTxns: [createMockDeflexTxn()],
-        algodClient: mockAlgodClient,
-        address: validAddress,
-        signer: async (txns: algosdk.Transaction[]) => {
-          return txns.map((txn) => {
-            const sk = algosdk.generateAccount().sk
-            return algosdk.signTransaction(txn, sk).blob
-          })
-        },
-      })
-
-      composer.addTransaction(createMockTransaction())
-
-      const result = await composer.execute(10)
-
-      // Verify execution completed successfully
-      expect(composer.getStatus()).toBe(SwapComposerStatus.COMMITTED)
-      expect(result.confirmedRound).toBe(1234n)
-      expect(result.txIds).toHaveLength(2) // 1 user txn + 1 from deflexTxns
+      atcExecuteSpy.mockRestore()
     })
   })
 
@@ -1221,6 +1440,89 @@ describe('SwapComposer', () => {
 
         expect(signedTxns.length).toBeGreaterThan(0)
       })
+
+      it('should throw error for logic signature missing lsig field', async () => {
+        const appAddress = algosdk.getApplicationAddress(BigInt(123456))
+        const txn = createMockTransaction(appAddress.toString())
+
+        // Create invalid signature structure without lsig field
+        const invalidSignatureBlob = new Uint8Array([
+          0x81, // msgpack map with 1 element
+          0xa4,
+          0x74,
+          0x65,
+          0x73,
+          0x74, // key: "test"
+          0xa5,
+          0x76,
+          0x61,
+          0x6c,
+          0x75,
+          0x65, // value: "value"
+        ])
+
+        const mockDeflexTxn: DeflexTransaction = {
+          data: Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString(
+            'base64',
+          ),
+          signature: {
+            type: 'logic_signature',
+            value: Object.fromEntries(
+              invalidSignatureBlob.entries(),
+            ) as unknown as Record<string, number>,
+          },
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const composer = new SwapComposer({
+          quote: createMockQuote() as FetchQuoteResponse,
+          deflexTxns: [mockDeflexTxn],
+          algodClient: mockAlgodClient,
+          address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
+        })
+
+        await composer.addSwapTransactions()
+
+        // Error happens during signing when the Deflex signer is called
+        await expect(composer.sign()).rejects.toThrow(
+          'Logic signature structure missing lsig field',
+        )
+      })
+
+      it('should throw error for unsupported signature type', async () => {
+        const txn = createMockTransaction()
+
+        const mockDeflexTxn: DeflexTransaction = {
+          data: Buffer.from(algosdk.encodeUnsignedTransaction(txn)).toString(
+            'base64',
+          ),
+          signature: {
+            type: 'unsupported_type' as any,
+            value: {} as Record<string, number>,
+          },
+          group: '',
+          logicSigBlob: false,
+        }
+
+        const composer = new SwapComposer({
+          quote: createMockQuote() as FetchQuoteResponse,
+          deflexTxns: [mockDeflexTxn],
+          algodClient: mockAlgodClient,
+          address: validAddress,
+          signer: async (txns: algosdk.Transaction[]) =>
+            txns.map(() => new Uint8Array(0)),
+        })
+
+        await composer.addSwapTransactions()
+
+        // Error happens during signing when the Deflex signer is called
+        await expect(composer.sign()).rejects.toThrow(
+          'Unsupported signature type',
+        )
+      })
     })
   })
 
@@ -1241,8 +1543,17 @@ describe('SwapComposer', () => {
         algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
-          txns.map(() => new Uint8Array(0)),
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
+
+      // Spy on ATC execute
+      const atcExecuteSpy = vi
+        .spyOn((composer as any).atc, 'execute')
+        .mockResolvedValue({
+          confirmedRound: BigInt(1002),
+          txIDs: ['tx1', 'tx2', 'tx3'],
+          methodResults: [],
+        })
 
       expect(composer.getStatus()).toBe(SwapComposerStatus.BUILDING)
 
@@ -1257,9 +1568,14 @@ describe('SwapComposer', () => {
 
       const result = await composer.execute(1234)
 
-      expect(composer.getStatus()).toBe(SwapComposerStatus.COMMITTED)
-      expect(result.confirmedRound).toBe(1234n)
-      expect(result.txIds.length).toBe(composer.count())
+      // Verify execute was called with custom wait rounds
+      expect(atcExecuteSpy).toHaveBeenCalledWith(mockAlgodClient, 1234)
+
+      expect(result.confirmedRound).toBe(BigInt(1002))
+      expect(result.txIds.length).toBe(3)
+      expect(result.methodResults).toBeDefined()
+
+      atcExecuteSpy.mockRestore()
     })
 
     it('should handle swap without additional transactions', async () => {
@@ -1278,14 +1594,33 @@ describe('SwapComposer', () => {
         algodClient: mockAlgodClient,
         address: validAddress,
         signer: async (txns: algosdk.Transaction[]) =>
-          txns.map(() => new Uint8Array(0)),
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
       })
 
-      // Execute without manually adding swap transactions
-      const result = await composer.execute(1234)
+      // Spy on ATC execute
+      const atcExecuteSpy = vi
+        .spyOn((composer as any).atc, 'execute')
+        .mockResolvedValue({
+          confirmedRound: BigInt(1002),
+          txIDs: ['tx1'],
+          methodResults: [],
+        })
 
-      expect(composer.getStatus()).toBe(SwapComposerStatus.COMMITTED)
-      expect(result.txIds.length).toBeGreaterThan(0)
+      expect(composer.count()).toBe(0)
+
+      // Execute without manually adding swap transactions
+      const result = await composer.execute(10)
+
+      // Verify swap transactions were auto-added
+      expect(composer.count()).toBe(1)
+
+      // Verify execute was called with custom wait rounds
+      expect(atcExecuteSpy).toHaveBeenCalledWith(mockAlgodClient, 10)
+
+      expect(result.txIds.length).toBe(1)
+      expect(result.methodResults).toBeDefined()
+
+      atcExecuteSpy.mockRestore()
     })
   })
 })

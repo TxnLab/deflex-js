@@ -1,5 +1,15 @@
 import type { Protocol } from './constants'
-import type algosdk from 'algosdk'
+import type {
+  ABIArgument,
+  ABIMethod,
+  Address,
+  BoxReference,
+  OnApplicationComplete,
+  ResourceReference,
+  SuggestedParams,
+  Transaction,
+  TransactionSigner,
+} from 'algosdk'
 
 /**
  * Configuration parameters for initializing DeflexClient
@@ -282,11 +292,64 @@ export interface FetchSwapTxnsResponse {
 /**
  * Processed transaction with optional pre-signature
  *
+ * @deprecated This type is no longer used internally. Use algosdk.TransactionWithSigner instead.
  * @internal
  */
 export interface SwapTransaction {
   /** The Algorand transaction */
-  readonly txn: algosdk.Transaction
+  readonly txn: Transaction
   /** Pre-signature from Deflex (if applicable) */
   readonly deflexSignature?: DeflexSignature
+}
+
+/**
+ * Method call to be executed as part of the swap
+ */
+export interface MethodCall {
+  /** The ID of the smart contract to call. Set this to 0 to indicate an application creation call. */
+  appID: number | bigint
+  /** The method to call on the smart contract */
+  method: ABIMethod
+  /** The arguments to include in the method call. If omitted, no arguments will be passed to the method. */
+  methodArgs?: ABIArgument[]
+  /** The address of the sender of this application call */
+  sender: string | Address
+  /** Transactions params to use for this application call */
+  suggestedParams: SuggestedParams
+  /** The OnComplete action to take for this application call. If omitted, OnApplicationComplete.NoOpOC will be used. */
+  onComplete?: OnApplicationComplete
+  /** The approval program for this application call. Only set this if this is an application creation call, or if onComplete is OnApplicationComplete.UpdateApplicationOC */
+  approvalProgram?: Uint8Array
+  /** The clear program for this application call. Only set this if this is an application creation call, or if onComplete is OnApplicationComplete.UpdateApplicationOC */
+  clearProgram?: Uint8Array
+  /** The global integer schema size. Only set this if this is an application creation call. */
+  numGlobalInts?: number
+  /** The global byte slice schema size. Only set this if this is an application creation call. */
+  numGlobalByteSlices?: number
+  /** The local integer schema size. Only set this if this is an application creation call. */
+  numLocalInts?: number
+  /** The local byte slice schema size. Only set this if this is an application creation call. */
+  numLocalByteSlices?: number
+  /** The number of extra pages to allocate for the application's programs. Only set this if this is an application creation call. If omitted, defaults to 0. */
+  extraPages?: number
+  /** Array of Address strings that represent external accounts supplied to this application. If accounts are provided here, the accounts specified in the method args will appear after these. */
+  appAccounts?: Array<string | Address>
+  /** Array of App ID numbers that represent external apps supplied to this application. If apps are provided here, the apps specified in the method args will appear after these. */
+  appForeignApps?: Array<number | bigint>
+  /** Array of Asset ID numbers that represent external assets supplied to this application. If assets are provided here, the assets specified in the method args will appear after these. */
+  appForeignAssets?: Array<number | bigint>
+  /** The box references for this application call */
+  boxes?: BoxReference[]
+  /** The resource references for this application call */
+  access?: ResourceReference[]
+  /** The note value for this application call */
+  note?: Uint8Array
+  /** The lease value for this application call */
+  lease?: Uint8Array
+  /** If provided, the address that the sender will be rekeyed to at the conclusion of this application call */
+  rekeyTo?: string | Address
+  /** The lowest application version for which this transaction should immediately fail. 0 indicates that no version check should be performed. */
+  rejectVersion?: number | bigint
+  /** A transaction signer that can authorize this application call from sender */
+  signer?: TransactionSigner
 }
