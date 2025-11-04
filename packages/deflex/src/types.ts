@@ -282,6 +282,7 @@ export interface FetchSwapTxnsResponse {
 /**
  * Processed transaction with optional pre-signature
  *
+ * @deprecated This type is no longer used internally. Use algosdk.TransactionWithSigner instead.
  * @internal
  */
 export interface SwapTransaction {

@@ -1,22 +1,22 @@
 import {
-  assignGroupID,
+  AtomicTransactionComposer,
   decodeUnsignedTransaction,
   isValidAddress,
-  signLogicSigTransactionObject,
-  signTransaction,
   LogicSigAccount,
   makeApplicationOptInTxnFromObject,
   msgpackRawDecode,
+  signLogicSigTransactionObject,
+  signTransaction,
   Transaction,
-  waitForConfirmation,
+  type ABIResult,
   type Algodv2,
   type TransactionSigner,
+  type TransactionWithSigner,
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
 import type {
   FetchQuoteResponse,
   DeflexTransaction,
-  SwapTransaction,
   DeflexSignature,
   DeflexQuote,
 } from './types'
@@ -89,14 +89,14 @@ export interface SwapComposerConfig {
  * ```
  */
 export class SwapComposer {
-  /** The maximum size of an atomic transaction group. */
-  static MAX_GROUP_SIZE: number = 16
+  /** The ATC used to compose the group */
+  private atc = new AtomicTransactionComposer()
 
-  private status: SwapComposerStatus = SwapComposerStatus.BUILDING
-  private transactions: SwapTransaction[] = []
+  /** The maximum size of an atomic transaction group. */
+  static MAX_GROUP_SIZE: number = AtomicTransactionComposer.MAX_GROUP_SIZE
+
+  /** Whether the swap transactions have been added to the atomic group. */
   private swapTransactionsAdded = false
-  private signedTxns: Uint8Array[] = []
-  private txIds: string[] = []
 
   private readonly requiredAppOptIns: number[]
   private readonly deflexTxns: DeflexTransaction[]
@@ -148,7 +148,7 @@ export class SwapComposer {
    * @returns The current status of the transaction group
    */
   getStatus(): SwapComposerStatus {
-    return this.status
+    return this.atc.getStatus() as unknown as SwapComposerStatus
   }
 
   /**
@@ -157,7 +157,7 @@ export class SwapComposer {
    * @returns The number of transactions in the group
    */
   count(): number {
-    return this.transactions.length
+    return this.atc.count()
   }
 
   /**
@@ -176,20 +176,8 @@ export class SwapComposer {
    * @throws Error if the composer is not in the BUILDING status
    * @throws Error if the maximum group size is exceeded
    */
-  addTransaction(transaction: Transaction): this {
-    if (this.status !== SwapComposerStatus.BUILDING) {
-      throw new Error(
-        'Cannot add transactions when composer status is not BUILDING',
-      )
-    }
-
-    if (this.transactions.length === SwapComposer.MAX_GROUP_SIZE) {
-      throw new Error(
-        `Adding an additional transaction exceeds the maximum atomic group size of ${SwapComposer.MAX_GROUP_SIZE}`,
-      )
-    }
-
-    this.transactions.push({ txn: transaction })
+  addTransaction(transaction: Transaction, signer = this.defaultSigner): this {
+    this.atc.addTransaction({ txn: transaction, signer })
     return this
   }
 
@@ -209,14 +197,14 @@ export class SwapComposer {
       throw new Error('Swap transactions have already been added')
     }
 
-    if (this.status !== SwapComposerStatus.BUILDING) {
+    if (this.getStatus() !== SwapComposerStatus.BUILDING) {
       throw new Error(
         'Cannot add swap transactions when composer status is not BUILDING',
       )
     }
 
     const processedTxns = await this.processSwapTransactions()
-    const newLength = this.transactions.length + processedTxns.length
+    const newLength = this.atc.count() + processedTxns.length
 
     if (newLength > SwapComposer.MAX_GROUP_SIZE) {
       throw new Error(
@@ -224,10 +212,37 @@ export class SwapComposer {
       )
     }
 
-    this.transactions.push(...processedTxns)
+    for (const txnWithSigner of processedTxns) {
+      this.atc.addTransaction(txnWithSigner)
+    }
 
     this.swapTransactionsAdded = true
     return this
+  }
+
+  /**
+   * Finalize the transaction group by assigning group IDs
+   *
+   * This method builds the atomic transaction group, assigning group IDs to all transactions
+   * if there is more than one transaction. After calling this method, the composer's status
+   * will be at least BUILT.
+   *
+   * @returns Array of transactions with their associated signers
+   *
+   * @throws Error if the group contains 0 transactions
+   *
+   * @example
+   * ```typescript
+   * const composer = await deflex.newSwap({ quote, address, slippage })
+   * composer.addTransaction(customTxn)
+   *
+   * // Build the group to inspect transactions before signing
+   * const txnsWithSigners = composer.buildGroup()
+   * console.log(`Group contains ${txnsWithSigners.length} transactions`)
+   * ```
+   */
+  buildGroup(): TransactionWithSigner[] {
+    return this.atc.buildGroup()
   }
 
   /**
@@ -244,8 +259,8 @@ export class SwapComposer {
    * ```
    */
   async sign(): Promise<Uint8Array[]> {
-    if (this.status >= SwapComposerStatus.SIGNED) {
-      return this.signedTxns
+    if (this.getStatus() >= SwapComposerStatus.SIGNED) {
+      return this.atc.gatherSignatures()
     }
 
     // Auto-add swap transactions if needed
@@ -253,67 +268,7 @@ export class SwapComposer {
       await this.addSwapTransactions()
     }
 
-    // Build the transaction group, ensure status is BUILT
-    const transactions = this.buildGroup()
-
-    // Collect all transactions and identify which ones need user signature
-    const txnGroup: Transaction[] = []
-    const indexesToSign: number[] = []
-
-    for (let i = 0; i < transactions.length; i++) {
-      const item = transactions[i]
-      if (!item) continue
-
-      txnGroup.push(item.txn)
-
-      if (!item.deflexSignature) {
-        // User transaction - needs user signature
-        indexesToSign.push(i)
-      }
-    }
-
-    // Sign all transactions with the complete group
-    const signedTxns = await this.signer(txnGroup, indexesToSign)
-
-    // Normalize signedTxns - handle both wallet patterns:
-    // Pattern 1: Returns only signed txns (length < txnGroup.length)
-    // Pattern 2: Returns array matching group length with nulls for non-signed (ARC-1)
-    const userSignedTxns = signedTxns.filter(
-      (txn): txn is Uint8Array => txn !== null,
-    )
-
-    // Rebuild complete group in correct order
-    const finalSignedTxns: Uint8Array[] = []
-    let userSignedIndex = 0
-
-    for (const item of transactions) {
-      if (item.deflexSignature) {
-        // Pre-signed transaction - re-sign with Deflex signature
-        const signedTxnBlob = this.signDeflexTransaction(
-          item.txn,
-          item.deflexSignature,
-        )
-        finalSignedTxns.push(signedTxnBlob)
-      } else {
-        // User transaction - use signature from signer
-        const userSignedTxn = userSignedTxns[userSignedIndex]
-        if (!userSignedTxn) {
-          throw new Error(
-            `Missing signature for user transaction at index ${userSignedIndex}`,
-          )
-        }
-        finalSignedTxns.push(userSignedTxn)
-        userSignedIndex++
-      }
-    }
-
-    const txIds = this.transactions.map((t) => t.txn.txID())
-
-    this.signedTxns = finalSignedTxns
-    this.txIds = txIds
-    this.status = SwapComposerStatus.SIGNED
-
-    return finalSignedTxns
+    return await this.atc.gatherSignatures()
   }
 
   /**
@@ -332,15 +287,12 @@ export class SwapComposer {
    * ```
    */
   async submit(): Promise<string[]> {
-    if (this.status > SwapComposerStatus.SUBMITTED) {
-      throw new Error('Transaction group cannot be resubmitted')
+    // Auto-add swap transactions if needed (maintains backward compatibility)
+    if (!this.swapTransactionsAdded) {
+      await this.addSwapTransactions()
     }
 
-    const stxns = await this.sign()
-    await this.algodClient.sendRawTransaction(stxns).do()
-
-    this.status = SwapComposerStatus.SUBMITTED
-    return this.txIds
+    return this.atc.submit(this.algodClient)
   }
 
   /**
@@ -364,28 +316,21 @@ export class SwapComposer {
   async execute(waitRounds: number = DEFAULT_CONFIRMATION_ROUNDS): Promise<{
     confirmedRound: bigint
     txIds: string[]
+    methodResults: ABIResult[]
   }> {
-    if (this.status === SwapComposerStatus.COMMITTED) {
-      throw new Error(
-        'Transaction group has already been executed successfully',
-      )
+    // Auto-add swap transactions if needed (maintains backward compatibility)
+    if (!this.swapTransactionsAdded) {
+      await this.addSwapTransactions()
     }
 
-    const txIds = await this.submit()
-
-    const confirmedTxnInfo = await waitForConfirmation(
+    const { txIDs, ...result } = await this.atc.execute(
       this.algodClient,
-      txIds[0]!,
       waitRounds,
     )
 
-    this.status = SwapComposerStatus.COMMITTED
-
-    const confirmedRound = confirmedTxnInfo.confirmedRound!
-
     return {
-      confirmedRound: BigInt(confirmedRound),
-      txIds,
+      ...result,
+      txIds: txIDs,
     }
   }
 
@@ -402,34 +347,30 @@ export class SwapComposer {
   /**
    * Processes app opt-ins and decodes swap transactions from API response
    */
-  private async processSwapTransactions(): Promise<SwapTransaction[]> {
-    // Process required app opt-ins
-    const appOptIns: SwapTransaction[] = await this.processRequiredAppOptIns()
+  private async processSwapTransactions(): Promise<TransactionWithSigner[]> {
+    const appOptIns = await this.processRequiredAppOptIns()
 
-    // Decode and process swap transactions from API
-    const swapTxns: SwapTransaction[] = []
+    const swapTxns: TransactionWithSigner[] = []
     for (let i = 0; i < this.deflexTxns.length; i++) {
       const deflexTxn = this.deflexTxns[i]
       if (!deflexTxn) continue
 
       try {
-        // Decode transaction from base64 data
         const txnBytes = Buffer.from(deflexTxn.data, 'base64')
         const txn = decodeUnsignedTransaction(txnBytes)
-
-        // Remove group ID (will be reassigned later)
         delete txn.group
 
         if (deflexTxn.signature !== false) {
-          // Pre-signed transaction - needs re-signing with provided signature
+          // Pre-signed transaction - use custom Deflex signer
           swapTxns.push({
             txn,
-            deflexSignature: deflexTxn.signature,
+            signer: this.createDeflexSigner(deflexTxn.signature),
           })
         } else {
-          // User transaction - needs user signature
+          // User transaction - use configured signer
           swapTxns.push({
             txn,
+            signer: this.defaultSigner,
           })
         }
       } catch (error) {
@@ -445,7 +386,7 @@ export class SwapComposer {
   /**
    * Creates opt-in transactions for apps the user hasn't opted into yet
    */
-  private async processRequiredAppOptIns(): Promise<SwapTransaction[]> {
+  private async processRequiredAppOptIns(): Promise<TransactionWithSigner[]> {
     // Fetch account information
     const accountInfo = await this.algodClient
       .accountInformation(this.address)
@@ -458,40 +399,45 @@ export class SwapComposer {
       (appId) => !userApps.includes(appId),
     )
 
-    // Create opt-in transactions if needed
-    const appOptInTxns: Transaction[] = []
-    if (appsToOptIn.length > 0) {
-      const suggestedParams = await this.algodClient.getTransactionParams().do()
+    if (appsToOptIn.length === 0) return []
 
-      for (const appId of appsToOptIn) {
-        const optInTxn = makeApplicationOptInTxnFromObject({
-          sender: this.address,
-          appIndex: appId,
-          suggestedParams,
-        })
-        appOptInTxns.push(optInTxn)
-      }
-    }
+    const suggestedParams = await this.algodClient.getTransactionParams().do()
 
-    return appOptInTxns.map((txn) => ({ txn }))
+    return appsToOptIn.map((appId) => ({
+      txn: makeApplicationOptInTxnFromObject({
+        sender: this.address,
+        appIndex: appId,
+        suggestedParams,
+      }),
+      signer: this.defaultSigner,
+    }))
   }
 
   /**
-   * Finalizes the transaction group by assigning group IDs
-   *
-   * The composer's status will be at least BUILT after executing this method.
+   * The default signer function that uses the configured signer
    */
-  private buildGroup(): SwapTransaction[] {
-    if (this.status === SwapComposerStatus.BUILDING) {
-      if (this.transactions.length === 0) {
-        throw new Error('Cannot build a group with 0 transactions')
-      }
-      if (this.transactions.length > 1) {
-        assignGroupID(this.transactions.map((t) => t.txn))
-      }
-      this.status = SwapComposerStatus.BUILT
+  private defaultSigner: TransactionSigner = async (
+    txnGroup: Transaction[],
+    indexesToSign: number[],
+  ) => {
+    const result = await this.signer(txnGroup, indexesToSign)
+    return result.filter((txn): txn is Uint8Array => txn !== null)
+  }
+
+  /**
+   * Creates a TransactionSigner function for Deflex pre-signed transactions
+   */
+  private createDeflexSigner(signature: DeflexSignature): TransactionSigner {
+    return async (
+      txnGroup: Transaction[],
+      indexesToSign: number[],
+    ): Promise<Uint8Array[]> => {
+      return indexesToSign.map((i) => {
+        const txn = txnGroup[i]
+        if (!txn) throw new Error(`Transaction at index ${i} not found`)
+        return this.signDeflexTransaction(txn, signature)
+      })
     }
-    return this.transactions
   }
 
   /**
