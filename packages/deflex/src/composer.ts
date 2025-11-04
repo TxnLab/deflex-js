@@ -183,6 +183,25 @@ export class SwapComposer {
   }
 
   /**
+   * Add a method call to the atomic group
+   *
+   * The `signer` property in the `methodCall` parameter is optional. If not provided,
+   * the signer will default to the one passed as the second parameter, or the
+   * configured signer from the constructor if no second parameter is provided.
+   *
+   * @param methodCall - The method call to add
+   * @param signer - The signer to use for the method call (defaults to constructor signer)
+   * @returns This composer instance for chaining
+   */
+  addMethodCall(methodCall: MethodCall, signer = this.defaultSigner): this {
+    this.atc.addMethodCall({
+      ...methodCall,
+      signer: methodCall.signer ?? signer,
+    })
+    return this
+  }
+
+  /**
    * Add swap transactions to the atomic group
    *
    * This method automatically processes required app opt-ins and adds all swap
@@ -218,25 +237,6 @@ export class SwapComposer {
     }
 
     this.swapTransactionsAdded = true
-    return this
-  }
-
-  /**
-   * Add a method call to the atomic group
-   *
-   * The `signer` property in the `methodCall` parameter is optional. If not provided,
-   * the signer will default to the one passed as the second parameter, or the
-   * configured signer from the constructor if no second parameter is provided.
-   *
-   * @param methodCall - The method call to add
-   * @param signer - The signer to use for the method call (defaults to constructor signer)
-   * @returns This composer instance for chaining
-   */
-  addMethodCall(methodCall: MethodCall, signer = this.defaultSigner): this {
-    this.atc.addMethodCall({
-      ...methodCall,
-      signer: methodCall.signer ?? signer,
-    })
     return this
   }
 
