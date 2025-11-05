@@ -18,10 +18,10 @@ export interface SwapContext {
   readonly algodClient: Algodv2
   /** Suggested transaction parameters from the network */
   readonly suggestedParams: SuggestedParams
-  /** Input asset ID */
-  readonly fromASAID: number
-  /** Output asset ID */
-  readonly toASAID: number
+  /** Input asset ID (always bigint for precision and future-proofing) */
+  readonly fromASAID: bigint
+  /** Output asset ID (always bigint for precision and future-proofing) */
+  readonly toASAID: bigint
   /** Transaction signer for transactions that need to be signed by the user */
   readonly signer: TransactionSigner
 }
@@ -85,7 +85,7 @@ export interface SwapMiddleware {
    * }
    * ```
    */
-  shouldApply(params: { fromASAID: number; toASAID: number }): Promise<boolean>
+  shouldApply(params: { fromASAID: bigint; toASAID: bigint }): Promise<boolean>
 
   /**
    * Modify quote parameters before fetching the quote

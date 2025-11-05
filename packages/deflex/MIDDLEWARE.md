@@ -59,8 +59,8 @@ Semantic version of your middleware (e.g., '1.0.0')
 Determines if middleware should be applied to a given swap. Called during both quote and swap phases.
 
 **Parameters:**
-- `params.fromASAID: number` - Input asset ID
-- `params.toASAID: number` - Output asset ID
+- `params.fromASAID: bigint` - Input asset ID
+- `params.toASAID: bigint` - Output asset ID
 
 **Returns:** `true` if either asset requires special handling
 
@@ -196,8 +196,8 @@ interface SwapContext {
   readonly address: string              // User's address
   readonly algodClient: Algodv2         // Algod client for queries
   readonly suggestedParams: SuggestedParams  // Transaction parameters
-  readonly fromASAID: number            // Input asset ID
-  readonly toASAID: number              // Output asset ID
+  readonly fromASAID: bigint            // Input asset ID
+  readonly toASAID: bigint              // Output asset ID
   readonly signer: TransactionSigner    // User's transaction signer
 }
 ```
@@ -460,15 +460,15 @@ export class FirstStageMiddleware implements SwapMiddleware {
   readonly version = '1.0.0'
 
   private contractAppId: number
-  private assetInfoCache = new Map<number, AssetTaxInfo | null>()
+  private assetInfoCache = new Map<bigint, AssetTaxInfo | null>()
 
   constructor(config: { contractAppId: number }) {
     this.contractAppId = config.contractAppId
   }
 
   async shouldApply(params: {
-    fromASAID: number
-    toASAID: number
+    fromASAID: bigint
+    toASAID: bigint
   }): Promise<boolean> {
     const [fromInfo, toInfo] = await Promise.all([
       this.getAssetTaxInfo(params.fromASAID),
@@ -481,8 +481,8 @@ export class FirstStageMiddleware implements SwapMiddleware {
     params: FetchQuoteParams
   ): Promise<FetchQuoteParams> {
     const [fromInfo, toInfo] = await Promise.all([
-      this.getAssetTaxInfo(Number(params.fromASAID)),
-      this.getAssetTaxInfo(Number(params.toASAID)),
+      this.getAssetTaxInfo(BigInt(params.fromASAID)),
+      this.getAssetTaxInfo(BigInt(params.toASAID)),
     ])
 
     // Reduce maxGroupSize: 3 transactions per taxed asset
@@ -546,7 +546,7 @@ export class FirstStageMiddleware implements SwapMiddleware {
   }
 
   private async getAssetTaxInfo(
-    assetId: number
+    assetId: bigint
   ): Promise<AssetTaxInfo | null> {
     if (this.assetInfoCache.has(assetId)) {
       return this.assetInfoCache.get(assetId)!

@@ -308,8 +308,8 @@ export class DeflexClient {
 
     for (const mw of this.middleware) {
       const shouldApply = await mw.shouldApply({
-        fromASAID: Number(params.fromASAID),
-        toASAID: Number(params.toASAID),
+        fromASAID: BigInt(params.fromASAID),
+        toASAID: BigInt(params.toASAID),
       })
 
       if (shouldApply && mw.adjustQuoteParams) {

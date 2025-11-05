@@ -81,7 +81,7 @@ describe('Middleware System', () => {
 
   describe('Middleware quote adjustments', () => {
     it('should apply adjustQuoteParams from middleware', async () => {
-      const CUSTOM_ASSET_ID = 12345
+      const CUSTOM_ASSET_ID = 12345n
 
       const middleware: SwapMiddleware = {
         name: 'TestMiddleware',

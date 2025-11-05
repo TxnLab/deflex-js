@@ -543,8 +543,8 @@ export class SwapComposer {
 
     for (const mw of this.middleware) {
       const shouldApply = await mw.shouldApply({
-        fromASAID: this.quote.fromASAID,
-        toASAID: this.quote.toASAID,
+        fromASAID: BigInt(this.quote.fromASAID),
+        toASAID: BigInt(this.quote.toASAID),
       })
 
       if (!shouldApply || !mw[hookName]) {
@@ -567,8 +567,8 @@ export class SwapComposer {
 
     for (const mw of this.middleware) {
       const shouldApply = await mw.shouldApply({
-        fromASAID: this.quote.fromASAID,
-        toASAID: this.quote.toASAID,
+        fromASAID: BigInt(this.quote.fromASAID),
+        toASAID: BigInt(this.quote.toASAID),
       })
 
       if (!shouldApply || !mw.afterSwap) {
@@ -605,8 +605,8 @@ export class SwapComposer {
       address: this.address,
       algodClient: this.algodClient,
       suggestedParams,
-      fromASAID: this.quote.fromASAID,
-      toASAID: this.quote.toASAID,
+      fromASAID: BigInt(this.quote.fromASAID),
+      toASAID: BigInt(this.quote.toASAID),
       signer: this.defaultSigner,
     }
   }
