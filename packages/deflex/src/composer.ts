@@ -238,14 +238,25 @@ export class SwapComposer {
 
     // Execute beforeSwap middleware hooks
     const beforeTxns = await this.executeMiddlewareHooks('beforeSwap')
+
+    // Check total length before adding beforeSwap transactions
+    if (this.atc.count() + beforeTxns.length > SwapComposer.MAX_GROUP_SIZE) {
+      throw new Error(
+        `Adding beforeSwap transactions exceeds the maximum atomic group size of ${SwapComposer.MAX_GROUP_SIZE}`,
+      )
+    }
+
     for (const txnWithSigner of beforeTxns) {
       this.atc.addTransaction(txnWithSigner)
     }
 
-    // Add swap transactions (includes app opt-ins)
+    // Process swap transactions and execute afterSwap hooks
     const processedTxns = await this.processSwapTransactions()
+    const afterTxns = await this.executeMiddlewareHooks('afterSwap')
+
+    // Check total length before adding swap and afterSwap transactions
     const totalLength =
-      this.atc.count() + processedTxns.length + (await this.getAfterSwapCount())
+      this.atc.count() + processedTxns.length + afterTxns.length
 
     if (totalLength > SwapComposer.MAX_GROUP_SIZE) {
       throw new Error(
@@ -253,12 +264,12 @@ export class SwapComposer {
       )
     }
 
+    // Add swap transactions
     for (const txnWithSigner of processedTxns) {
       this.atc.addTransaction(txnWithSigner)
     }
 
-    // Execute afterSwap middleware hooks
-    const afterTxns = await this.executeMiddlewareHooks('afterSwap')
+    // Add afterSwap middleware transactions
     for (const txnWithSigner of afterTxns) {
       this.atc.addTransaction(txnWithSigner)
     }
@@ -557,30 +568,6 @@ export class SwapComposer {
     }
 
     return allTxns
-  }
-
-  /**
-   * Get count of afterSwap transactions without executing them
-   */
-  private async getAfterSwapCount(): Promise<number> {
-    let count = 0
-
-    for (const mw of this.middleware) {
-      const shouldApply = await mw.shouldApply({
-        fromASAID: BigInt(this.quote.fromASAID),
-        toASAID: BigInt(this.quote.toASAID),
-      })
-
-      if (!shouldApply || !mw.afterSwap) {
-        continue
-      }
-
-      const context = await this.createSwapContext()
-      const txns = await mw.afterSwap(context)
-      count += txns.length
-    }
-
-    return count
   }
 
   /**
