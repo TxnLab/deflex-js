@@ -1,5 +1,6 @@
 export * from './client'
 export * from './composer'
 export * from './constants'
+export * from './middleware'
 export * from './types'
 export * from './utils'

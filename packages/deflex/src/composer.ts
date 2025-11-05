@@ -14,6 +14,7 @@ import {
   type TransactionWithSigner,
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
+import type { SwapMiddleware, SwapContext } from './middleware'
 import type {
   FetchQuoteResponse,
   DeflexTransaction,
@@ -69,6 +70,8 @@ export interface SwapComposerConfig {
   readonly address: string
   /** Transaction signer function */
   readonly signer: TransactionSigner | SignerFunction
+  /** Middleware to apply during swap composition */
+  readonly middleware?: SwapMiddleware[]
 }
 
 /**
@@ -99,11 +102,13 @@ export class SwapComposer {
   /** Whether the swap transactions have been added to the atomic group. */
   private swapTransactionsAdded = false
 
+  private readonly quote: FetchQuoteResponse | DeflexQuote
   private readonly requiredAppOptIns: number[]
   private readonly deflexTxns: DeflexTransaction[]
   private readonly algodClient: Algodv2
   private readonly address: string
   private readonly signer: TransactionSigner | SignerFunction
+  private readonly middleware: SwapMiddleware[]
 
   /**
    * Create a new SwapComposer instance
@@ -112,11 +117,12 @@ export class SwapComposer {
    * this directly, as the factory method handles fetching swap transactions automatically.
    *
    * @param config - Configuration for the composer
-   * @param config.requiredAppOptIns - The quote response from fetchQuote()
+   * @param config.quote - The quote response from fetchQuote()
    * @param config.deflexTxns - The swap transactions from fetchSwapTransactions()
    * @param config.algodClient - Algodv2 client instance
    * @param config.address - The address of the account that will sign transactions
    * @param config.signer - Transaction signer function
+   * @param config.middleware - Middleware to apply during swap composition
    */
   constructor(config: SwapComposerConfig) {
     // Validate required parameters
@@ -136,11 +142,13 @@ export class SwapComposer {
       throw new Error('Signer is required')
     }
 
+    this.quote = config.quote
     this.requiredAppOptIns = config.quote.requiredAppOptIns
     this.deflexTxns = config.deflexTxns
     this.algodClient = config.algodClient
     this.address = this.validateAddress(config.address)
     this.signer = config.signer
+    this.middleware = config.middleware ?? []
   }
 
   /**
@@ -204,8 +212,13 @@ export class SwapComposer {
   /**
    * Add swap transactions to the atomic group
    *
-   * This method automatically processes required app opt-ins and adds all swap
-   * transactions from the quote. Can only be called once per composer instance.
+   * This method automatically processes required app opt-ins, executes middleware hooks,
+   * and adds all swap transactions from the quote. Can only be called once per composer instance.
+   *
+   * Middleware hooks are executed in this order:
+   * 1. beforeSwap() - Add transactions before swap transactions
+   * 2. Swap transactions (from API)
+   * 3. afterSwap() - Add transactions after swap transactions
    *
    * @returns This composer instance for chaining
    * @throws Error if the swap transactions have already been added
@@ -223,16 +236,30 @@ export class SwapComposer {
       )
     }
 
-    const processedTxns = await this.processSwapTransactions()
-    const newLength = this.atc.count() + processedTxns.length
+    // Execute beforeSwap middleware hooks
+    const beforeTxns = await this.executeMiddlewareHooks('beforeSwap')
+    for (const txnWithSigner of beforeTxns) {
+      this.atc.addTransaction(txnWithSigner)
+    }
 
-    if (newLength > SwapComposer.MAX_GROUP_SIZE) {
+    // Add swap transactions (includes app opt-ins)
+    const processedTxns = await this.processSwapTransactions()
+    const totalLength =
+      this.atc.count() + processedTxns.length + (await this.getAfterSwapCount())
+
+    if (totalLength > SwapComposer.MAX_GROUP_SIZE) {
       throw new Error(
         `Adding swap transactions exceeds the maximum atomic group size of ${SwapComposer.MAX_GROUP_SIZE}`,
       )
     }
 
     for (const txnWithSigner of processedTxns) {
+      this.atc.addTransaction(txnWithSigner)
+    }
+
+    // Execute afterSwap middleware hooks
+    const afterTxns = await this.executeMiddlewareHooks('afterSwap')
+    for (const txnWithSigner of afterTxns) {
       this.atc.addTransaction(txnWithSigner)
     }
 
@@ -503,6 +530,84 @@ export class SwapComposer {
       throw new Error(
         `Failed to re-sign transaction: ${error instanceof Error ? error.message : String(error)}`,
       )
+    }
+  }
+
+  /**
+   * Execute middleware hooks (beforeSwap or afterSwap)
+   */
+  private async executeMiddlewareHooks(
+    hookName: 'beforeSwap' | 'afterSwap',
+  ): Promise<TransactionWithSigner[]> {
+    const allTxns: TransactionWithSigner[] = []
+
+    for (const mw of this.middleware) {
+      const shouldApply = await mw.shouldApply({
+        fromASAID: this.quote.fromASAID,
+        toASAID: this.quote.toASAID,
+      })
+
+      if (!shouldApply || !mw[hookName]) {
+        continue
+      }
+
+      const context = await this.createSwapContext()
+      const txns = await mw[hookName]!(context)
+      allTxns.push(...txns)
+    }
+
+    return allTxns
+  }
+
+  /**
+   * Get count of afterSwap transactions without executing them
+   */
+  private async getAfterSwapCount(): Promise<number> {
+    let count = 0
+
+    for (const mw of this.middleware) {
+      const shouldApply = await mw.shouldApply({
+        fromASAID: this.quote.fromASAID,
+        toASAID: this.quote.toASAID,
+      })
+
+      if (!shouldApply || !mw.afterSwap) {
+        continue
+      }
+
+      const context = await this.createSwapContext()
+      const txns = await mw.afterSwap(context)
+      count += txns.length
+    }
+
+    return count
+  }
+
+  /**
+   * Create SwapContext for middleware hooks
+   */
+  private async createSwapContext(): Promise<SwapContext> {
+    const suggestedParams = await this.algodClient.getTransactionParams().do()
+
+    // Convert to DeflexQuote if needed
+    const quote: DeflexQuote =
+      'createdAt' in this.quote
+        ? this.quote
+        : {
+            ...this.quote,
+            quote: this.quote.quote === '' ? 0n : BigInt(this.quote.quote),
+            amount: 0n, // Not available in FetchQuoteResponse
+            createdAt: Date.now(),
+          }
+
+    return {
+      quote,
+      address: this.address,
+      algodClient: this.algodClient,
+      suggestedParams,
+      fromASAID: this.quote.fromASAID,
+      toASAID: this.quote.toASAID,
+      signer: this.defaultSigner,
     }
   }
 }
