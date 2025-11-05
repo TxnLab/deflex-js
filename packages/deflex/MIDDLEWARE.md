@@ -329,8 +329,13 @@ async beforeSwap(context: SwapContext): Promise<TransactionWithSigner[]> {
   "name": "@your-org/deflex-middleware",
   "version": "1.0.0",
   "description": "Deflex middleware for CustomAsset",
-  "main": "dist/index.js",
-  "types": "dist/index.d.ts",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
   "keywords": ["deflex", "algorand", "dex", "middleware"],
   "peerDependencies": {
     "@txnlab/deflex": "^1.2.0",
