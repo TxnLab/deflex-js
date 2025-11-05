@@ -223,6 +223,44 @@ const result = await swap
   .execute()                      // Sign and execute entire group
 ```
 
+### Middleware for Custom Asset Requirements
+
+Some Algorand assets require additional transactions to be added to swap groups (e.g., assets with transfer restrictions, taxes, or custom smart contract logic). The Deflex SDK supports a middleware system that allows these special requirements to be handled by external packages without modifying the core SDK.
+
+Middleware can:
+- Adjust quote parameters (e.g., reduce `maxGroupSize` to account for extra transactions)
+- Add transactions before the swap (e.g., unfreeze account, setup calls)
+- Add transactions after the swap (e.g., tax payments, cleanup calls)
+
+```typescript
+import { DeflexClient } from '@txnlab/deflex'
+import { FirstStageMiddleware } from '@first-stage/deflex-middleware' // Example external package
+
+// Initialize middleware
+const firstStage = new FirstStageMiddleware({
+  contractAppId: 123456,
+})
+
+// Pass middleware to DeflexClient
+const deflex = new DeflexClient({
+  apiKey: 'your-api-key',
+  middleware: [firstStage], // Middleware is applied automatically
+})
+
+// Use normally - middleware handles everything
+const quote = await deflex.newQuote({
+  fromASAID: 0,        // ALGO
+  toASAID: 789012,     // Custom asset (e.g., MOOJ, DEAL)
+  amount: 1_000_000,
+  address: userAddress,
+})
+
+const swap = await deflex.newSwap({ quote, address, signer, slippage: 1 })
+await swap.execute() // Middleware transactions are automatically included
+```
+
+For details on creating your own middleware, see [MIDDLEWARE.md](MIDDLEWARE.md).
+
 ### Manual Asset Opt-In Detection
 
 If you're not using `autoOptIn: true`, you can manually check if opt-in is needed:
@@ -284,16 +322,17 @@ The main client for interacting with the Deflex API.
 new DeflexClient(config: DeflexConfigParams)
 ```
 
-| Option            | Description                                                  | Type               | Default                                |
-| ----------------- | ------------------------------------------------------------ | ------------------ | -------------------------------------- |
-| `apiKey`          | Your Deflex API key                                          | `string`           | **required**                           |
-| `apiBaseUrl`      | Base URL for the Deflex API                                  | `string`           | `https://deflex.txnlab.dev`            |
-| `algodUri`        | Algod node URI                                               | `string`           | `https://mainnet-api.4160.nodely.dev/` |
-| `algodToken`      | Algod node token                                             | `string`           | `''`                                   |
-| `algodPort`       | Algod node port                                              | `string \| number` | `443`                                  |
-| `referrerAddress` | Referrer address for fee sharing (receives 25% of swap fees) | `string`           | `undefined`                            |
-| `feeBps`          | Fee in basis points (0.15%, max: 300 = 3.00%)                | `number`           | `15`                                   |
-| `autoOptIn`       | Auto-detect and add required opt-in transactions             | `boolean`          | `false`                                |
+| Option            | Description                                                  | Type                  | Default                                |
+| ----------------- | ------------------------------------------------------------ | --------------------- | -------------------------------------- |
+| `apiKey`          | Your Deflex API key                                          | `string`              | **required**                           |
+| `apiBaseUrl`      | Base URL for the Deflex API                                  | `string`              | `https://deflex.txnlab.dev`            |
+| `algodUri`        | Algod node URI                                               | `string`              | `https://mainnet-api.4160.nodely.dev/` |
+| `algodToken`      | Algod node token                                             | `string`              | `''`                                   |
+| `algodPort`       | Algod node port                                              | `string \| number`    | `443`                                  |
+| `referrerAddress` | Referrer address for fee sharing (receives 25% of swap fees) | `string`              | `undefined`                            |
+| `feeBps`          | Fee in basis points (0.15%, max: 300 = 3.00%)                | `number`              | `15`                                   |
+| `autoOptIn`       | Auto-detect and add required opt-in transactions             | `boolean`             | `false`                                |
+| `middleware`      | Array of middleware for custom asset requirements            | `SwapMiddleware[]`    | `[]`                                   |
 
 > **Referral Program**: By providing a `referrerAddress`, you can earn 25% of the swap fees generated through your integration. The `feeBps` parameter sets the total fee charged (default: 0.15%). Learn more about the [Deflex Referral Program](https://txnlab.gitbook.io/deflex-api/referral-treasury/referral-program).
 
