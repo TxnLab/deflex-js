@@ -38,7 +38,7 @@ interface SwapMiddleware {
   // Required
   readonly name: string
   readonly version: string
-  shouldApply(params: { fromASAID: number; toASAID: number }): Promise<boolean>
+  shouldApply(params: { fromASAID: bigint; toASAID: bigint }): Promise<boolean>
 
   // Optional hooks
   adjustQuoteParams?(params: FetchQuoteParams): Promise<FetchQuoteParams>
@@ -228,22 +228,22 @@ import type {
 import type { TransactionWithSigner } from 'algosdk'
 
 export interface CustomAssetConfig {
-  contractAppId: number
+  contractAppId: number | bigint
 }
 
 export class CustomAssetMiddleware implements SwapMiddleware {
   readonly name = 'CustomAsset'
   readonly version = '1.0.0'
 
-  private contractAppId: number
+  private contractAppId: number | bigint
 
   constructor(config: CustomAssetConfig) {
     this.contractAppId = config.contractAppId
   }
 
   async shouldApply(params: {
-    fromASAID: number
-    toASAID: number
+    fromASAID: bigint
+    toASAID: bigint
   }): Promise<boolean> {
     // Check if either asset is registered
     const [fromRegistered, toRegistered] = await Promise.all([
@@ -274,7 +274,7 @@ export class CustomAssetMiddleware implements SwapMiddleware {
     return []
   }
 
-  private async isAssetRegistered(assetId: number): Promise<boolean> {
+  private async isAssetRegistered(assetId: bigint): Promise<boolean> {
     // Query smart contract to check registration
     // Cache results for performance
     return false
@@ -288,10 +288,10 @@ For performance, cache smart contract queries:
 
 ```typescript
 export class CustomAssetMiddleware implements SwapMiddleware {
-  private assetCache = new Map<number, boolean>()
-  private taxRateCache = new Map<number, number>()
+  private assetCache = new Map<bigint, boolean>()
+  private taxRateCache = new Map<bigint, number>()
 
-  private async isAssetRegistered(assetId: number): Promise<boolean> {
+  private async isAssetRegistered(assetId: bigint): Promise<boolean> {
     if (this.assetCache.has(assetId)) {
       return this.assetCache.get(assetId)!
     }
@@ -459,10 +459,10 @@ export class FirstStageMiddleware implements SwapMiddleware {
   readonly name = 'FirstStage'
   readonly version = '1.0.0'
 
-  private contractAppId: number
+  private contractAppId: number | bigint
   private assetInfoCache = new Map<bigint, AssetTaxInfo | null>()
 
-  constructor(config: { contractAppId: number }) {
+  constructor(config: { contractAppId: number | bigint }) {
     this.contractAppId = config.contractAppId
   }
 
