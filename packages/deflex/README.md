@@ -234,7 +234,7 @@ Middleware can:
 
 ```typescript
 import { DeflexClient } from '@txnlab/deflex'
-import { FirstStageMiddleware } from '@first-stage/deflex-middleware' // Example external package
+import { FirstStageMiddleware } from '@firststage/deflex-middleware' // Example external package
 
 // Initialize middleware
 const firstStage = new FirstStageMiddleware({
