@@ -1,3 +1,10 @@
+# [1.4.0](https://github.com/TxnLab/deflex-js/compare/v1.3.0...v1.4.0) (2025-11-06)
+
+
+### Features
+
+* add AutoOptOutMiddleware for automatic asset opt-out on full balance swaps ([#20](https://github.com/TxnLab/deflex-js/issues/20)) ([e1bbdaa](https://github.com/TxnLab/deflex-js/commit/e1bbdaa9f3459c8587a00bb24b63b7a20f16e2f5))
+
 # [1.3.0](https://github.com/TxnLab/deflex-js/compare/v1.2.0...v1.3.0) (2025-11-06)
 
 
