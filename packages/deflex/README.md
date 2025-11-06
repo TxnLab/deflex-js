@@ -259,6 +259,31 @@ const swap = await deflex.newSwap({ quote, address, signer, slippage: 1 })
 await swap.execute() // Middleware transactions are automatically included
 ```
 
+#### Built-in Middleware
+
+The SDK includes `AutoOptOutMiddleware`, which automatically opts out of assets when swapping your full balance, cleaning up zero balance assets and reducing minimum balance requirements:
+
+```typescript
+import { DeflexClient, AutoOptOutMiddleware } from '@txnlab/deflex'
+
+const autoOptOut = new AutoOptOutMiddleware({
+  excludedAssets: [31566704], // Optional: exclude specific assets like USDC
+})
+
+const deflex = new DeflexClient({
+  apiKey: 'your-api-key',
+  middleware: [autoOptOut],
+})
+
+// When swapping full balance, opt-out transaction is automatically added
+const quote = await deflex.newQuote({
+  fromASAID: someAssetId,
+  toASAID: 0,
+  amount: fullBalance, // If this matches your full balance, asset will be opted out
+  address: userAddress,
+})
+```
+
 For details on creating your own middleware, see [MIDDLEWARE.md](MIDDLEWARE.md).
 
 ### Manual Asset Opt-In Detection

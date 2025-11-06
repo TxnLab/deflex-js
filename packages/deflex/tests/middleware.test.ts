@@ -1,7 +1,9 @@
-import { describe, it, expect, vi } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { DeflexClient } from '../src/client'
-import type { SwapMiddleware } from '../src/middleware'
+import { AutoOptOutMiddleware } from '../src/middleware'
+import type { QuoteContext, SwapMiddleware } from '../src/middleware'
 import type { FetchQuoteParams } from '../src/types'
+import type { Algodv2 } from 'algosdk'
 
 describe('Middleware System', () => {
   describe('SwapMiddleware interface', () => {
@@ -293,6 +295,445 @@ describe('Middleware System', () => {
       // This would require mocking the entire swap flow
       // For now, we can verify the middleware structure
       expect(middleware.beforeSwap).toBeDefined()
+    })
+  })
+
+  describe('AutoOptOutMiddleware', () => {
+    let mockAlgodClient: Algodv2
+
+    beforeEach(() => {
+      mockAlgodClient = {
+        accountInformation: vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            appsLocalState: [],
+            assets: [],
+          }),
+        }),
+        getTransactionParams: vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            fee: 1000,
+            firstValid: 1000,
+            lastValid: 2000,
+            minFee: 1000,
+            genesisID: 'testnet-v1.0',
+            genesisHash: Buffer.from(
+              'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+              'base64',
+            ),
+          }),
+        }),
+      } as any
+    })
+
+    describe('constructor', () => {
+      it('should create middleware with default config', () => {
+        const middleware = new AutoOptOutMiddleware()
+        expect(middleware.name).toBe('AutoOptOut')
+        expect(middleware.version).toBe('1.0.0')
+      })
+
+      it('should create middleware with excluded assets', () => {
+        const middleware = new AutoOptOutMiddleware({
+          excludedAssets: [31566704, 1234567n],
+        })
+        expect(middleware).toBeInstanceOf(AutoOptOutMiddleware)
+      })
+
+      it('should create middleware with empty excluded assets', () => {
+        const middleware = new AutoOptOutMiddleware({
+          excludedAssets: [],
+        })
+        expect(middleware).toBeInstanceOf(AutoOptOutMiddleware)
+      })
+    })
+
+    describe('shouldApply', () => {
+      it('should return false for fixed-output swaps', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const context: QuoteContext = {
+          fromASAID: 12345n,
+          toASAID: 0n,
+          amount: 1_000_000n,
+          type: 'fixed-output',
+          address: 'TEST_ADDRESS',
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(false)
+      })
+
+      it('should return false when address is not provided', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const context: QuoteContext = {
+          fromASAID: 12345n,
+          toASAID: 0n,
+          amount: 1_000_000n,
+          type: 'fixed-input',
+          address: undefined,
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(false)
+      })
+
+      it('should return false for ALGO (asset ID 0)', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const context: QuoteContext = {
+          fromASAID: 0n,
+          toASAID: 12345n,
+          amount: 1_000_000n,
+          type: 'fixed-input',
+          address: 'TEST_ADDRESS',
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(false)
+      })
+
+      it('should return false for excluded assets', async () => {
+        const excludedAssetId = 31566704
+        const middleware = new AutoOptOutMiddleware({
+          excludedAssets: [excludedAssetId],
+        })
+        const context: QuoteContext = {
+          fromASAID: BigInt(excludedAssetId),
+          toASAID: 0n,
+          amount: 1_000_000n,
+          type: 'fixed-input',
+          address: 'TEST_ADDRESS',
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(false)
+      })
+
+      it('should return true when swapping full balance', async () => {
+        const assetId = 12345n
+        const fullBalance = 1_000_000n
+        const middleware = new AutoOptOutMiddleware()
+
+        // Mock algod client to return account with matching balance
+        const mockAccountInfo = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            assets: [
+              {
+                assetId: assetId,
+                amount: fullBalance,
+              },
+            ],
+          }),
+        })
+        vi.spyOn(mockAlgodClient, 'accountInformation').mockImplementation(
+          mockAccountInfo,
+        )
+
+        const context: QuoteContext = {
+          fromASAID: assetId,
+          toASAID: 0n,
+          amount: fullBalance,
+          type: 'fixed-input',
+          address: 'TEST_ADDRESS',
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(true)
+        expect(mockAccountInfo).toHaveBeenCalledWith('TEST_ADDRESS')
+      })
+
+      it('should return false when swapping partial balance', async () => {
+        const assetId = 12345n
+        const fullBalance = 1_000_000n
+        const partialAmount = 500_000n
+        const middleware = new AutoOptOutMiddleware()
+
+        // Mock algod client to return account with higher balance
+        const mockAccountInfo = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            assets: [
+              {
+                assetId: assetId,
+                amount: fullBalance,
+              },
+            ],
+          }),
+        })
+        vi.spyOn(mockAlgodClient, 'accountInformation').mockImplementation(
+          mockAccountInfo,
+        )
+
+        const context: QuoteContext = {
+          fromASAID: assetId,
+          toASAID: 0n,
+          amount: partialAmount,
+          type: 'fixed-input',
+          address: 'TEST_ADDRESS',
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(false)
+      })
+
+      it('should return false when asset not found in account', async () => {
+        const assetId = 12345n
+        const middleware = new AutoOptOutMiddleware()
+
+        // Mock algod client to return account without the asset
+        const mockAccountInfo = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            assets: [
+              {
+                assetId: 99999n,
+                amount: 1_000_000n,
+              },
+            ],
+          }),
+        })
+        vi.spyOn(mockAlgodClient, 'accountInformation').mockImplementation(
+          mockAccountInfo,
+        )
+
+        const context: QuoteContext = {
+          fromASAID: assetId,
+          toASAID: 0n,
+          amount: 1_000_000n,
+          type: 'fixed-input',
+          address: 'TEST_ADDRESS',
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(false)
+      })
+
+      it('should return false and log warning on API error', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const consoleWarnSpy = vi
+          .spyOn(console, 'warn')
+          .mockImplementation(() => {})
+
+        // Mock algod client to throw error
+        const mockAccountInfo = vi.fn().mockReturnValue({
+          do: vi.fn().mockRejectedValue(new Error('Network error')),
+        })
+        vi.spyOn(mockAlgodClient, 'accountInformation').mockImplementation(
+          mockAccountInfo,
+        )
+
+        const context: QuoteContext = {
+          fromASAID: 12345n,
+          toASAID: 0n,
+          amount: 1_000_000n,
+          type: 'fixed-input',
+          address: 'TEST_ADDRESS',
+          algodClient: mockAlgodClient,
+        }
+
+        const result = await middleware.shouldApply(context)
+        expect(result).toBe(false)
+        expect(consoleWarnSpy).toHaveBeenCalledWith(
+          expect.stringContaining('AutoOptOutMiddleware'),
+          expect.any(Error),
+        )
+
+        consoleWarnSpy.mockRestore()
+      })
+    })
+
+    describe('adjustQuoteParams', () => {
+      it('should reduce maxGroupSize by 1', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const params: FetchQuoteParams = {
+          fromASAID: 12345,
+          toASAID: 0,
+          amount: 1_000_000,
+          maxGroupSize: 16,
+        }
+
+        const adjusted = await middleware.adjustQuoteParams(params)
+        expect(adjusted.maxGroupSize).toBe(15)
+      })
+
+      it('should use default maxGroupSize when not provided', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const params: FetchQuoteParams = {
+          fromASAID: 12345,
+          toASAID: 0,
+          amount: 1_000_000,
+        }
+
+        const adjusted = await middleware.adjustQuoteParams(params)
+        expect(adjusted.maxGroupSize).toBe(15) // 16 - 1
+      })
+
+      it('should preserve other params', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const params: FetchQuoteParams = {
+          fromASAID: 12345,
+          toASAID: 0,
+          amount: 1_000_000,
+          type: 'fixed-input',
+          disabledProtocols: [],
+          maxDepth: 3,
+        }
+
+        const adjusted = await middleware.adjustQuoteParams(params)
+        expect(adjusted.fromASAID).toBe(12345)
+        expect(adjusted.toASAID).toBe(0)
+        expect(adjusted.amount).toBe(1_000_000)
+        expect(adjusted.type).toBe('fixed-input')
+        expect(adjusted.disabledProtocols).toEqual([])
+        expect(adjusted.maxDepth).toBe(3)
+      })
+    })
+
+    describe('afterSwap', () => {
+      it('should create asset opt-out transaction', async () => {
+        const middleware = new AutoOptOutMiddleware()
+        const mockSigner = vi.fn()
+        const testAddress =
+          'GD64YIY3TWGDMCNPP553DZPPR6LDUSFQOIJVFDPPXWEG3FVOJCCDBBHU5A' // Valid non-zero Algorand address
+        const mockSuggestedParams = {
+          fee: 1000,
+          firstValid: 1000,
+          lastValid: 2000,
+          genesisHash: Buffer.from(
+            'SGO1GKSzyE7IEPItTxCByw9x8FmnrCDexi9/cOUJOiI=',
+            'base64',
+          ),
+          genesisID: 'testnet-v1.0',
+          minFee: 1000,
+        }
+
+        const context = {
+          quote: {
+            quote: 1_000_000n,
+            amount: 1_000_000n,
+            fromASAID: 12345,
+            toASAID: 0,
+            type: 'fixed-input',
+            route: [],
+            requiredAppOptIns: [],
+            txnPayload: null,
+            profit: {
+              amount: 0,
+              asa: {
+                id: 0,
+                decimals: 6,
+                unit_name: 'ALGO',
+                name: 'Algorand',
+                price_algo: 1,
+                price_usd: 0,
+              },
+            },
+            priceBaseline: 1,
+            usdIn: 0,
+            usdOut: 0,
+            flattenedRoute: {},
+            quotes: [],
+            protocolFees: {},
+            createdAt: Date.now(),
+          },
+          address: testAddress,
+          algodClient: mockAlgodClient,
+          suggestedParams: mockSuggestedParams,
+          fromASAID: 12345n,
+          toASAID: 0n,
+          signer: mockSigner,
+        }
+
+        const txns = await middleware.afterSwap(context)
+
+        expect(txns).toHaveLength(1)
+        expect(txns[0]?.txn).toBeDefined()
+        expect(txns[0]?.signer).toBe(mockSigner)
+
+        // Verify transaction was created successfully
+        const txn = txns[0]?.txn
+        expect(txn).toBeDefined()
+        expect(txn?.type).toBe('axfer')
+      })
+    })
+
+    describe('integration with DeflexClient', () => {
+      it('should work with DeflexClient and adjust quote params', async () => {
+        const assetId = 12345n
+        const fullBalance = 1_000_000n
+        const testAddress =
+          'GD64YIY3TWGDMCNPP553DZPPR6LDUSFQOIJVFDPPXWEG3FVOJCCDBBHU5A'
+        const middleware = new AutoOptOutMiddleware()
+
+        const deflex = new DeflexClient({
+          apiKey: 'test-key',
+          middleware: [middleware],
+        })
+
+        // Mock algod client with correct format
+        const mockAccountInfo = vi.fn().mockReturnValue({
+          do: vi.fn().mockResolvedValue({
+            assets: [
+              {
+                assetId: assetId,
+                amount: fullBalance,
+              },
+            ],
+          }),
+        })
+        vi.spyOn(
+          (deflex as any).algodClient,
+          'accountInformation',
+        ).mockImplementation(mockAccountInfo)
+
+        // Mock fetchQuote
+        let capturedParams: FetchQuoteParams | null = null
+        vi.spyOn(deflex as any, 'fetchQuote').mockImplementation(
+          async (params: any) => {
+            capturedParams = params as FetchQuoteParams
+            return {
+              quote: '1000000',
+              fromASAID: Number(params.fromASAID),
+              toASAID: Number(params.toASAID),
+              route: [],
+              requiredAppOptIns: [],
+              txnPayload: { iv: 'test', data: 'test' },
+              profit: {
+                amount: 0,
+                asa: {
+                  id: 0,
+                  decimals: 6,
+                  unit_name: 'ALGO',
+                  name: 'Algorand',
+                  price_algo: 1,
+                  price_usd: 0,
+                },
+              },
+              priceBaseline: 1,
+              usdIn: 0,
+              usdOut: 0,
+              flattenedRoute: {},
+              quotes: [],
+              type: 'fixed-input',
+              protocolFees: {},
+            }
+          },
+        )
+
+        await deflex.newQuote({
+          fromASAID: assetId,
+          toASAID: 0,
+          amount: fullBalance,
+          type: 'fixed-input',
+          address: testAddress,
+        })
+
+        expect(capturedParams).not.toBeNull()
+        expect(capturedParams!.maxGroupSize).toBe(15) // 16 - 1
+      })
     })
   })
 })
