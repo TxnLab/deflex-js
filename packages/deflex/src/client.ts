@@ -13,6 +13,7 @@ import {
   MAX_FEE_BPS,
 } from './constants'
 import { request } from './utils'
+import type { SwapMiddleware } from './middleware'
 import type {
   FetchQuoteResponse,
   FetchSwapTxnsResponse,
@@ -55,6 +56,7 @@ import type {
 export class DeflexClient {
   private readonly config: DeflexConfig
   private readonly algodClient: Algodv2
+  private readonly middleware: SwapMiddleware[]
 
   /**
    * Create a new DeflexClient instance
@@ -68,8 +70,9 @@ export class DeflexClient {
    * @param config.referrerAddress - Referrer address for fee sharing (receives 25% of swap fees)
    * @param config.feeBps - Fee in basis points (default: 15 = 0.15%, max: 300 = 3.00%)
    * @param config.autoOptIn - Automatically detect and add required opt-in transactions (default: false)
+   * @param config.middleware - Array of middleware to apply to swaps (default: [])
    */
-  constructor(config: DeflexConfigParams) {
+  constructor(config: DeflexConfigParams & { middleware?: SwapMiddleware[] }) {
     // Validate and set config
     this.config = {
       apiKey: this.validateApiKey(config.apiKey),
@@ -90,6 +93,9 @@ export class DeflexClient {
       this.config.algodUri,
       this.config.algodPort,
     )
+
+    // Store middleware
+    this.middleware = config.middleware ?? []
   }
 
   /**
@@ -297,7 +303,21 @@ export class DeflexClient {
    * ```
    */
   async newQuote(params: FetchQuoteParams): Promise<DeflexQuote> {
-    const response = await this.fetchQuote(params)
+    // Apply middleware transformations to quote params
+    let adjustedParams = { ...params }
+
+    for (const mw of this.middleware) {
+      const shouldApply = await mw.shouldApply({
+        fromASAID: BigInt(params.fromASAID),
+        toASAID: BigInt(params.toASAID),
+      })
+
+      if (shouldApply && mw.adjustQuoteParams) {
+        adjustedParams = await mw.adjustQuoteParams(adjustedParams)
+      }
+    }
+
+    const response = await this.fetchQuote(adjustedParams)
 
     return {
       ...response,
@@ -377,6 +397,7 @@ export class DeflexClient {
       algodClient: this.algodClient,
       address,
       signer,
+      middleware: this.middleware,
     })
 
     return composer
