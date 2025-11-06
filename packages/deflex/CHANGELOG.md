@@ -1,3 +1,10 @@
+# [1.3.0](https://github.com/TxnLab/deflex-js/compare/v1.2.0...v1.3.0) (2025-11-06)
+
+
+### Features
+
+* add middleware system for custom asset support ([#19](https://github.com/TxnLab/deflex-js/issues/19)) ([f75963c](https://github.com/TxnLab/deflex-js/commit/f75963c96933a85f15ca94d76bd1a2a5da4f383c))
+
 # [1.2.0](https://github.com/TxnLab/deflex-js/compare/v1.1.0...v1.2.0) (2025-11-04)
 
 
