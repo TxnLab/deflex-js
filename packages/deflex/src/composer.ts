@@ -14,13 +14,14 @@ import {
   type TransactionWithSigner,
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
-import type { SwapMiddleware, SwapContext } from './middleware'
+import type { SwapMiddleware, SwapContext, QuoteContext } from './middleware'
 import type {
   FetchQuoteResponse,
   DeflexTransaction,
   DeflexSignature,
   DeflexQuote,
   MethodCall,
+  QuoteType,
 } from './types'
 
 /**
@@ -552,30 +553,6 @@ export class SwapComposer {
   ): Promise<TransactionWithSigner[]> {
     const allTxns: TransactionWithSigner[] = []
 
-    for (const mw of this.middleware) {
-      const shouldApply = await mw.shouldApply({
-        fromASAID: BigInt(this.quote.fromASAID),
-        toASAID: BigInt(this.quote.toASAID),
-      })
-
-      if (!shouldApply || !mw[hookName]) {
-        continue
-      }
-
-      const context = await this.createSwapContext()
-      const txns = await mw[hookName]!(context)
-      allTxns.push(...txns)
-    }
-
-    return allTxns
-  }
-
-  /**
-   * Create SwapContext for middleware hooks
-   */
-  private async createSwapContext(): Promise<SwapContext> {
-    const suggestedParams = await this.algodClient.getTransactionParams().do()
-
     // Convert to DeflexQuote if needed
     const quote: DeflexQuote =
       'createdAt' in this.quote
@@ -587,14 +564,39 @@ export class SwapComposer {
             createdAt: Date.now(),
           }
 
-    return {
-      quote,
-      address: this.address,
-      algodClient: this.algodClient,
-      suggestedParams,
+    // Create quote context for middleware shouldApply checks
+    const quoteContext: QuoteContext = {
       fromASAID: BigInt(this.quote.fromASAID),
       toASAID: BigInt(this.quote.toASAID),
-      signer: this.defaultSigner,
+      amount: quote.amount,
+      type: this.quote.type as QuoteType,
+      address: quote.address,
+      algodClient: this.algodClient,
     }
+
+    for (const mw of this.middleware) {
+      const shouldApply = await mw.shouldApply(quoteContext)
+
+      if (!shouldApply || !mw[hookName]) {
+        continue
+      }
+
+      // Create swap context for middleware hooks (only when needed)
+      const suggestedParams = await this.algodClient.getTransactionParams().do()
+      const swapContext: SwapContext = {
+        quote,
+        address: this.address,
+        algodClient: this.algodClient,
+        suggestedParams,
+        fromASAID: BigInt(this.quote.fromASAID),
+        toASAID: BigInt(this.quote.toASAID),
+        signer: this.defaultSigner,
+      }
+
+      const txns = await mw[hookName](swapContext)
+      allTxns.push(...txns)
+    }
+
+    return allTxns
   }
 }

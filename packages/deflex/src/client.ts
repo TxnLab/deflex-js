@@ -306,11 +306,18 @@ export class DeflexClient {
     // Apply middleware transformations to quote params
     let adjustedParams = { ...params }
 
+    // Create quote context for middleware
+    const quoteContext = {
+      fromASAID: BigInt(params.fromASAID),
+      toASAID: BigInt(params.toASAID),
+      amount: BigInt(params.amount),
+      type: params.type ?? ('fixed-input' as const),
+      address: params.address ?? undefined,
+      algodClient: this.algodClient,
+    }
+
     for (const mw of this.middleware) {
-      const shouldApply = await mw.shouldApply({
-        fromASAID: BigInt(params.fromASAID),
-        toASAID: BigInt(params.toASAID),
-      })
+      const shouldApply = await mw.shouldApply(quoteContext)
 
       if (shouldApply && mw.adjustQuoteParams) {
         adjustedParams = await mw.adjustQuoteParams(adjustedParams)
