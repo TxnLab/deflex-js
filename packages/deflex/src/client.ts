@@ -140,12 +140,24 @@ export class DeflexClient {
       maxDepth = DEFAULT_MAX_DEPTH,
       optIn,
       address,
+      _allowNonComposableSwaps = false,
     } = params
 
-    // Always include deprecated protocols in disabled list
-    const allDisabledProtocols = [
-      ...new Set([...DEPRECATED_PROTOCOLS, ...disabledProtocols]),
-    ]
+    // Validate incompatible parameter combinations
+    if (_allowNonComposableSwaps && (optIn === true || this.config.autoOptIn)) {
+      throw new Error(
+        'Cannot use _allowNonComposableSwaps with optIn or autoOptIn. ' +
+          'When allowing non-composable swaps (Tinyman v1), you must handle ' +
+          'asset opt-ins and opt-outs in separate transaction groups.',
+      )
+    }
+
+    // Conditionally include deprecated protocols in disabled list
+    // If _allowNonComposableSwaps is true, only exclude Tinyman v1 from auto-disabled list
+    // Otherwise, always include all deprecated protocols (Tinyman v1, Humble)
+    const allDisabledProtocols = _allowNonComposableSwaps
+      ? [...new Set(['Humble', ...disabledProtocols])]
+      : [...new Set([...DEPRECATED_PROTOCOLS, ...disabledProtocols])]
 
     let includeOptIn = optIn
     if (includeOptIn === undefined && this.config.autoOptIn) {
@@ -303,6 +315,15 @@ export class DeflexClient {
    * ```
    */
   async newQuote(params: FetchQuoteParams): Promise<DeflexQuote> {
+    // Block usage of _allowNonComposableSwaps with newQuote (middleware path)
+    if (params._allowNonComposableSwaps) {
+      throw new Error(
+        'The _allowNonComposableSwaps parameter is not supported with newQuote(). ' +
+          'This parameter is only available with fetchQuote() for advanced use cases. ' +
+          'The newQuote() method is designed for composable swaps with middleware support.',
+      )
+    }
+
     // Apply middleware transformations to quote params
     let adjustedParams = { ...params }
 
