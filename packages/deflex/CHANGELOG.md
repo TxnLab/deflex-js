@@ -1,3 +1,10 @@
+## [1.4.1](https://github.com/TxnLab/deflex-js/compare/v1.4.0...v1.4.1) (2025-11-22)
+
+
+### Bug Fixes
+
+* update default fee and confirmation rounds in constants ([#24](https://github.com/TxnLab/deflex-js/issues/24)) ([e166066](https://github.com/TxnLab/deflex-js/commit/e16606633240020da78951454e40a57a4354b8de))
+
 # [1.4.0](https://github.com/TxnLab/deflex-js/compare/v1.3.0...v1.4.0) (2025-11-06)
 
 
