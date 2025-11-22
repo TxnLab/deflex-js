@@ -69,8 +69,8 @@ describe('constants', () => {
   })
 
   describe('Fee configuration', () => {
-    it('should have default fee of 15 basis points', () => {
-      expect(DEFAULT_FEE_BPS).toBe(15)
+    it('should have default fee of 10 basis points', () => {
+      expect(DEFAULT_FEE_BPS).toBe(10)
     })
 
     it('should have maximum fee of 300 basis points', () => {
@@ -105,8 +105,8 @@ describe('constants', () => {
   })
 
   describe('Confirmation configuration', () => {
-    it('should have default confirmation rounds of 4', () => {
-      expect(DEFAULT_CONFIRMATION_ROUNDS).toBe(4)
+    it('should have default confirmation rounds of 10', () => {
+      expect(DEFAULT_CONFIRMATION_ROUNDS).toBe(10)
     })
 
     it('should have positive confirmation rounds', () => {

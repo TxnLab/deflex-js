@@ -1014,7 +1014,7 @@ describe('SwapComposer', () => {
       expect(composer.count()).toBe(2) // 1 user txn + 1 swap txn
 
       // Verify ATC execute was called with correct parameters
-      expect(atcExecuteSpy).toHaveBeenCalledWith(mockAlgodClient, 4) // default wait rounds
+      expect(atcExecuteSpy).toHaveBeenCalledWith(mockAlgodClient, 10) // default wait rounds
 
       // Verify return value transformation (txIDs -> txIds)
       expect(result.txIds).toEqual(['tx1', 'tx2'])

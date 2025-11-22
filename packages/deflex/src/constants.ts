@@ -29,8 +29,8 @@ export const DEFAULT_ALGOD_PORT = 443
 /** Default Deflex API base URL */
 export const DEFAULT_API_BASE_URL = 'https://deflex.txnlab.dev/api'
 
-/** Default fee in basis points (0.15%) */
-export const DEFAULT_FEE_BPS = 15
+/** Default fee in basis points (0.10%) */
+export const DEFAULT_FEE_BPS = 10
 
 /** Maximum allowed fee in basis points (3.00%) */
 export const MAX_FEE_BPS = 300
@@ -45,4 +45,4 @@ export const DEFAULT_MAX_DEPTH = 4
 export const DEFAULT_AUTO_OPT_IN = false
 
 /** Default number of rounds to wait for transaction confirmation */
-export const DEFAULT_CONFIRMATION_ROUNDS = 4
+export const DEFAULT_CONFIRMATION_ROUNDS = 10

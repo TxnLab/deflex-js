@@ -363,7 +363,7 @@ export class SwapComposer {
    * This is the primary method for executing swaps and combines sign(), submit(), and
    * waitForConfirmation() into a single call.
    *
-   * @param waitRounds - The number of rounds to wait for confirmation (default: 4)
+   * @param waitRounds - The number of rounds to wait for confirmation (default: 10)
    * @returns Object containing the confirmed round and transaction IDs
    * @throws Error if the transaction group has already been committed
    *
