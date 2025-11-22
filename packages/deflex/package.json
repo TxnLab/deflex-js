@@ -33,11 +33,11 @@
   "type": "module",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js"
+      "types": "./dist/index.d.mts",
+      "import": "./dist/index.mjs"
     }
   },
-  "types": "./dist/index.d.ts",
+  "types": "./dist/index.d.mts",
   "publishConfig": {
     "access": "public"
   },
@@ -53,13 +53,13 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "22.19.0",
-    "@vitest/coverage-v8": "4.0.6",
+    "@types/node": "22.19.1",
+    "@vitest/coverage-v8": "4.0.13",
     "algosdk": "3.5.2",
     "publint": "0.3.15",
-    "tsdown": "0.15.12",
+    "tsdown": "0.16.6",
     "typescript": "5.9.3",
-    "vitest": "4.0.6"
+    "vitest": "4.0.13"
   },
   "peerDependencies": {
     "algosdk": "^3.0.0"
