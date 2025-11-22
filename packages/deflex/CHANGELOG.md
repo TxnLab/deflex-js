@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/TxnLab/deflex-js/compare/v1.4.1...v1.5.0) (2025-11-22)
+
+
+### Features
+
+* add internal _allowNonComposableSwaps parameter for Tinyman v1 support ([#25](https://github.com/TxnLab/deflex-js/issues/25)) ([e70338a](https://github.com/TxnLab/deflex-js/commit/e70338afac58c9f0a13d72fdc0233a178bcd63fe))
+
 ## [1.4.1](https://github.com/TxnLab/deflex-js/compare/v1.4.0...v1.4.1) (2025-11-22)
 
 
