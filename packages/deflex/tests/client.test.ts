@@ -525,6 +525,139 @@ describe('DeflexClient', () => {
         expect(mockGetInfo).not.toHaveBeenCalled()
       })
     })
+
+    describe('_allowNonComposableSwaps parameter', () => {
+      it('should allow Tinyman v1 routing when _allowNonComposableSwaps is true', async () => {
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await client.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          _allowNonComposableSwaps: true,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        // Should NOT include Tinyman when _allowNonComposableSwaps is true
+        expect(callUrl).not.toContain('Tinyman')
+        // Should still include Humble
+        expect(callUrl).toContain('Humble')
+      })
+
+      it('should include deprecated protocols by default when _allowNonComposableSwaps is false', async () => {
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await client.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          _allowNonComposableSwaps: false,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        // Should include deprecated protocols
+        expect(callUrl).toContain('Tinyman')
+        expect(callUrl).toContain('Humble')
+      })
+
+      it('should throw error when _allowNonComposableSwaps is used with optIn: true', async () => {
+        await expect(
+          client.fetchQuote({
+            fromASAID: 0,
+            toASAID: 31566704,
+            amount: 1_000_000,
+            _allowNonComposableSwaps: true,
+            optIn: true,
+          }),
+        ).rejects.toThrow(
+          'Cannot use _allowNonComposableSwaps with optIn or autoOptIn',
+        )
+      })
+
+      it('should throw error when _allowNonComposableSwaps is used with autoOptIn enabled', async () => {
+        const clientWithAutoOptIn = new DeflexClient({
+          ...validConfig,
+          autoOptIn: true,
+        })
+
+        await expect(
+          clientWithAutoOptIn.fetchQuote({
+            fromASAID: 0,
+            toASAID: 31566704,
+            amount: 1_000_000,
+            _allowNonComposableSwaps: true,
+          }),
+        ).rejects.toThrow(
+          'Cannot use _allowNonComposableSwaps with optIn or autoOptIn',
+        )
+      })
+
+      it('should allow _allowNonComposableSwaps when optIn is false', async () => {
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await client.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          _allowNonComposableSwaps: true,
+          optIn: false,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).not.toContain('Tinyman')
+        expect(callUrl).toContain('optIn=false')
+      })
+
+      it('should allow _allowNonComposableSwaps when optIn is undefined and autoOptIn is disabled', async () => {
+        const mockQuote: Partial<FetchQuoteResponse> = {
+          fromASAID: 0,
+          toASAID: 31566704,
+          quote: '1000000',
+          route: [],
+          txnPayload: { iv: 'test-iv', data: 'test-data' },
+          requiredAppOptIns: [],
+        }
+
+        mockRequest.mockResolvedValue(mockQuote)
+
+        await client.fetchQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          _allowNonComposableSwaps: true,
+        })
+
+        const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
+        expect(callUrl).not.toContain('Tinyman')
+      })
+    })
   })
 
   describe('needsAssetOptIn', () => {
@@ -781,6 +914,19 @@ describe('DeflexClient', () => {
       const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
       expect(callUrl).toContain('fromASAID=0')
       expect(callUrl).toContain('toASAID=31566704')
+    })
+
+    it('should throw error when _allowNonComposableSwaps is used with newQuote', async () => {
+      await expect(
+        client.newQuote({
+          fromASAID: 0,
+          toASAID: 31566704,
+          amount: 1_000_000,
+          _allowNonComposableSwaps: true,
+        }),
+      ).rejects.toThrow(
+        'The _allowNonComposableSwaps parameter is not supported with newQuote()',
+      )
     })
   })
 
