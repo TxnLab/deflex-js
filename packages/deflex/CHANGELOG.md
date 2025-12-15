@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/TxnLab/deflex-js/compare/v1.5.0...v1.6.0) (2025-12-15)
+
+
+### Features
+
+* add note field support and input transaction ID retrieval ([#30](https://github.com/TxnLab/deflex-js/issues/30)) ([904dbcc](https://github.com/TxnLab/deflex-js/commit/904dbcc6fcf4d6558d235f49f8cd78c7f640b7fb))
+
 # [1.5.0](https://github.com/TxnLab/deflex-js/compare/v1.4.1...v1.5.0) (2025-11-22)
 
 
