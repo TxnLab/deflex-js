@@ -409,8 +409,10 @@ export class DeflexClient {
     address: string
     slippage: number
     signer: TransactionSigner | SignerFunction
+    /** Optional note field for the user-signed input transaction (payment or asset transfer) */
+    note?: Uint8Array
   }): Promise<SwapComposer> {
-    const { quote, address, slippage, signer } = config
+    const { quote, address, slippage, signer, note } = config
 
     const swapResponse = await this.fetchSwapTransactions({
       quote,
@@ -426,6 +428,7 @@ export class DeflexClient {
       address,
       signer,
       middleware: this.middleware,
+      note,
     })
 
     return composer
