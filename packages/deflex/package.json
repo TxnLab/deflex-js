@@ -53,11 +53,11 @@
     "typecheck": "tsc --noEmit"
   },
   "devDependencies": {
-    "@types/node": "22.19.1",
+    "@types/node": "22.19.3",
     "@vitest/coverage-v8": "4.0.15",
     "algosdk": "3.5.2",
-    "publint": "0.3.15",
-    "tsdown": "0.17.1",
+    "publint": "0.3.16",
+    "tsdown": "0.17.4",
     "typescript": "5.9.3",
     "vitest": "4.0.15"
   },
