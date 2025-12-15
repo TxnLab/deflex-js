@@ -120,6 +120,28 @@ console.log(`Confirmed in round ${result.confirmedRound}`)
 console.log('Transaction IDs:', result.txIds)
 ```
 
+### Transaction Tracking
+
+Add a custom note to the input transaction for tracking purposes, and retrieve its transaction ID after execution:
+
+```typescript
+const swap = await deflex.newSwap({
+  quote,
+  address: activeAddress,
+  signer: transactionSigner,
+  slippage: 1,
+  note: new TextEncoder().encode('tracking-id-123'), // Custom note for tracking
+})
+
+const result = await swap.execute()
+
+// Get the transaction ID of the user-signed input transaction
+const inputTxId = swap.getInputTransactionId()
+console.log('Input transaction ID:', inputTxId)
+```
+
+The `note` is applied only to the user-signed payment or asset transfer transaction (not pre-signed or middleware transactions). The transaction ID is available after calling `buildGroup()`, `sign()`, or `execute()`.
+
 ### Transaction Signing
 
 The SDK supports both standard `algosdk.TransactionSigner` and ARC-1 compliant signer functions.
@@ -395,6 +417,7 @@ async newSwap(config: SwapComposerConfig): Promise<SwapComposer>
 | `address`  | Signer address                                    | `string`                                                                                                               |
 | `slippage` | Slippage tolerance as percentage (e.g., 1 for 1%) | `number`                                                                                                               |
 | `signer`   | Transaction signer function                       | `algosdk.TransactionSigner \| ((txnGroup: Transaction[], indexesToSign: number[]) => Promise<(Uint8Array \| null)[]>)` |
+| `note`     | Optional note for the user-signed input transaction (for tracking purposes) | `Uint8Array`                                                                                             |
 
 #### DeflexClient.needsAssetOptIn()
 
@@ -458,6 +481,7 @@ Builder for constructing and executing atomic swap transaction groups, returned 
 | `execute(waitRounds?)`                 | Sign, submit, and wait for confirmation                                        | `waitRounds?: number` (default: 4)                             | `Promise<{ confirmedRound: bigint, txIds: string[], methodResults: ABIResult[] }>` |
 | `getStatus()`                          | Get current status: `BUILDING`, `BUILT`, `SIGNED`, `SUBMITTED`, or `COMMITTED` | None                                                           | `SwapComposerStatus`                                                               |
 | `count()`                              | Get the number of transactions in the group                                    | None                                                           | `number`                                                                           |
+| `getInputTransactionId()`              | Get the transaction ID of the user-signed input transaction (available after `buildGroup()`, `sign()`, or `execute()`) | None                                                           | `string \| undefined`                                                              |
 
 ## Documentation
 
