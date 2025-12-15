@@ -73,6 +73,8 @@ export interface SwapComposerConfig {
   readonly signer: TransactionSigner | SignerFunction
   /** Middleware to apply during swap composition */
   readonly middleware?: SwapMiddleware[]
+  /** Optional note field for the user-signed input transaction (payment or asset transfer) */
+  readonly note?: Uint8Array
 }
 
 /**
@@ -110,6 +112,8 @@ export class SwapComposer {
   private readonly address: string
   private readonly signer: TransactionSigner | SignerFunction
   private readonly middleware: SwapMiddleware[]
+  private readonly note?: Uint8Array
+  private inputTransactionIndex?: number
 
   /**
    * Create a new SwapComposer instance
@@ -150,6 +154,7 @@ export class SwapComposer {
     this.address = this.validateAddress(config.address)
     this.signer = config.signer
     this.middleware = config.middleware ?? []
+    this.note = config.note
   }
 
   /**
@@ -282,7 +287,8 @@ export class SwapComposer {
     }
 
     // Process swap transactions and execute afterSwap hooks
-    const processedTxns = await this.processSwapTransactions()
+    const { txns: processedTxns, userSignedTxnRelativeIndex } =
+      await this.processSwapTransactions()
     const afterTxns = await this.executeMiddlewareHooks('afterSwap')
 
     // Check total length before adding swap and afterSwap transactions
@@ -293,6 +299,12 @@ export class SwapComposer {
       throw new Error(
         `Adding swap transactions exceeds the maximum atomic group size of ${SwapComposer.MAX_GROUP_SIZE}`,
       )
+    }
+
+    // Calculate the absolute index of the user-signed input transaction
+    // This is: current ATC count (user txns + beforeSwap) + relative index within processed txns
+    if (userSignedTxnRelativeIndex !== undefined) {
+      this.inputTransactionIndex = this.atc.count() + userSignedTxnRelativeIndex
     }
 
     // Add swap transactions
@@ -426,6 +438,46 @@ export class SwapComposer {
   }
 
   /**
+   * Get the transaction ID of the user-signed input transaction
+   *
+   * Returns the transaction ID of the payment or asset transfer transaction
+   * that sends the input asset. This is the transaction whose note field can
+   * be customized via the `note` config option.
+   *
+   * The transaction ID is only available after the group has been built
+   * (after calling buildGroup(), sign(), submit(), or execute()).
+   *
+   * @returns The transaction ID, or undefined if the group hasn't been built yet
+   *          or if the input transaction index couldn't be determined
+   *
+   * @example
+   * ```typescript
+   * const swap = await deflex.newSwap({
+   *   quote,
+   *   address,
+   *   slippage,
+   *   signer,
+   *   note: new TextEncoder().encode('tracking-123')
+   * })
+   *
+   * await swap.execute()
+   * const inputTxId = swap.getInputTransactionId()
+   * console.log('Input transaction ID:', inputTxId)
+   * ```
+   */
+  getInputTransactionId(): string | undefined {
+    if (this.getStatus() < SwapComposerStatus.BUILT) {
+      return undefined
+    }
+    if (this.inputTransactionIndex === undefined) {
+      return undefined
+    }
+    const txns = this.atc.buildGroup()
+    const txn = txns[this.inputTransactionIndex]?.txn
+    return txn?.txID()
+  }
+
+  /**
    * Validates an Algorand address
    */
   private validateAddress(address: string): string {
@@ -438,10 +490,15 @@ export class SwapComposer {
   /**
    * Processes app opt-ins and decodes swap transactions from API response
    */
-  private async processSwapTransactions(): Promise<TransactionWithSigner[]> {
+  private async processSwapTransactions(): Promise<{
+    txns: TransactionWithSigner[]
+    userSignedTxnRelativeIndex?: number
+  }> {
     const appOptIns = await this.processRequiredAppOptIns()
 
     const swapTxns: TransactionWithSigner[] = []
+    let userSignedTxnRelativeIndex: number | undefined
+
     for (let i = 0; i < this.deflexTxns.length; i++) {
       const deflexTxn = this.deflexTxns[i]
       if (!deflexTxn) continue
@@ -459,6 +516,13 @@ export class SwapComposer {
           })
         } else {
           // User transaction - use configured signer
+          // Set the note if provided (using type assertion since note is readonly but safe to modify before signing)
+          if (this.note !== undefined) {
+            ;(txn as { note: Uint8Array }).note = this.note
+          }
+          // Track the relative index within processed transactions (after app opt-ins)
+          userSignedTxnRelativeIndex = appOptIns.length + swapTxns.length
+
           swapTxns.push({
             txn,
             signer: this.defaultSigner,
@@ -471,7 +535,10 @@ export class SwapComposer {
       }
     }
 
-    return [...appOptIns, ...swapTxns]
+    return {
+      txns: [...appOptIns, ...swapTxns],
+      userSignedTxnRelativeIndex,
+    }
   }
 
   /**

@@ -1701,6 +1701,370 @@ describe('SwapComposer', () => {
     })
   })
 
+  describe('note configuration', () => {
+    it('should set the note on the user-signed transaction', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const testNote = new TextEncoder().encode('test-tracking-id-123')
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+        note: testNote,
+      })
+
+      await composer.addSwapTransactions()
+      const txns = composer.buildGroup()
+
+      // The user-signed transaction should have the note set
+      expect(txns[0]?.txn.note).toEqual(testNote)
+    })
+
+    it('should not modify transactions when note is not provided', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+        // No note provided
+      })
+
+      await composer.addSwapTransactions()
+      const txns = composer.buildGroup()
+
+      // The transaction should have an empty note (default)
+      expect(txns[0]?.txn.note).toEqual(new Uint8Array())
+    })
+
+    it('should only set note on user-signed transaction, not pre-signed', async () => {
+      const logicSig = new algosdk.LogicSigAccount(
+        new Uint8Array([1, 32, 1, 1, 34]),
+      )
+
+      const appAddress = algosdk.getApplicationAddress(BigInt(123456))
+      const preSignedTxn = createMockTransaction(appAddress.toString())
+      const signedTxn = algosdk.signLogicSigTransactionObject(
+        preSignedTxn,
+        logicSig,
+      )
+
+      const mockPreSignedDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(preSignedTxn),
+        ).toString('base64'),
+        signature: {
+          type: 'logic_signature',
+          value: Object.fromEntries(
+            signedTxn.blob.entries(),
+          ) as unknown as Record<string, number>,
+        },
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const mockUserDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const testNote = new TextEncoder().encode('user-txn-note')
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockPreSignedDeflexTxn, mockUserDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+        note: testNote,
+      })
+
+      await composer.addSwapTransactions()
+      const txns = composer.buildGroup()
+
+      // Pre-signed transaction (index 0) should NOT have the note
+      expect(txns[0]?.txn.note).toEqual(new Uint8Array())
+
+      // User-signed transaction (index 1) should have the note
+      expect(txns[1]?.txn.note).toEqual(testNote)
+    })
+  })
+
+  describe('getInputTransactionId', () => {
+    it('should return undefined before group is built', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      // Before adding swap transactions
+      expect(composer.getInputTransactionId()).toBeUndefined()
+
+      // After adding swap transactions but before building
+      await composer.addSwapTransactions()
+      expect(composer.getInputTransactionId()).toBeUndefined()
+    })
+
+    it('should return transaction ID after buildGroup is called', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      await composer.addSwapTransactions()
+      composer.buildGroup()
+
+      const txId = composer.getInputTransactionId()
+
+      expect(txId).toBeDefined()
+      expect(typeof txId).toBe('string')
+      expect(txId?.length).toBeGreaterThan(0)
+    })
+
+    it('should return transaction ID after sign is called', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      await composer.sign()
+
+      const txId = composer.getInputTransactionId()
+
+      expect(txId).toBeDefined()
+      expect(typeof txId).toBe('string')
+    })
+
+    it('should return transaction ID after execute is called', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      // Build the group first so transactions are set up
+      await composer.addSwapTransactions()
+      composer.buildGroup()
+
+      // Mock execute to skip network calls
+      vi.spyOn((composer as any).atc, 'execute').mockResolvedValue({
+        confirmedRound: BigInt(1002),
+        txIDs: ['tx1'],
+        methodResults: [],
+      })
+
+      await composer.execute()
+
+      const txId = composer.getInputTransactionId()
+
+      expect(txId).toBeDefined()
+      expect(typeof txId).toBe('string')
+    })
+
+    it('should return correct index when there are transactions before swap', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      // Add transaction before swap
+      composer.addTransaction(createMockTransaction())
+
+      await composer.addSwapTransactions()
+      const txns = composer.buildGroup()
+
+      const txId = composer.getInputTransactionId()
+
+      // The input transaction should be at index 1 (after the user-added transaction)
+      expect(txId).toBe(txns[1]?.txn.txID())
+    })
+
+    it('should return correct index with app opt-ins', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const quote: Partial<FetchQuoteResponse> = {
+        ...createMockQuote(),
+        requiredAppOptIns: [123456],
+      }
+
+      // Mock that user is not opted in
+      mockAlgodClient.accountInformation = vi.fn().mockReturnValue({
+        do: vi.fn().mockResolvedValue({
+          appsLocalState: [],
+          assets: [],
+        }),
+      })
+
+      const composer = new SwapComposer({
+        quote: quote as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      await composer.addSwapTransactions()
+      const txns = composer.buildGroup()
+
+      const txId = composer.getInputTransactionId()
+
+      // The input transaction should be at index 1 (after the app opt-in)
+      // Index 0 = app opt-in, Index 1 = user's swap transaction
+      expect(txId).toBe(txns[1]?.txn.txID())
+    })
+
+    it('should track correct index with mixed pre-signed and user transactions', async () => {
+      const logicSig = new algosdk.LogicSigAccount(
+        new Uint8Array([1, 32, 1, 1, 34]),
+      )
+
+      const appAddress = algosdk.getApplicationAddress(BigInt(123456))
+      const preSignedTxn = createMockTransaction(appAddress.toString())
+      const signedTxn = algosdk.signLogicSigTransactionObject(
+        preSignedTxn,
+        logicSig,
+      )
+
+      const mockPreSignedDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(preSignedTxn),
+        ).toString('base64'),
+        signature: {
+          type: 'logic_signature',
+          value: Object.fromEntries(
+            signedTxn.blob.entries(),
+          ) as unknown as Record<string, number>,
+        },
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const mockUserDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const composer = new SwapComposer({
+        quote: createMockQuote() as FetchQuoteResponse,
+        deflexTxns: [mockPreSignedDeflexTxn, mockUserDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      await composer.addSwapTransactions()
+      const txns = composer.buildGroup()
+
+      const txId = composer.getInputTransactionId()
+
+      // The user-signed input transaction should be at index 1
+      expect(txId).toBe(txns[1]?.txn.txID())
+    })
+  })
+
   describe('integration scenarios', () => {
     it('should handle a complete swap workflow', async () => {
       const mockDeflexTxn: DeflexTransaction = {
