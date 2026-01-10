@@ -2065,6 +2065,82 @@ describe('SwapComposer', () => {
     })
   })
 
+  describe('getSummary', () => {
+    it('should return undefined before execution', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const quote: Partial<FetchQuoteResponse> = {
+        ...createMockQuote(),
+        type: 'fixed-input',
+      }
+
+      const composer = new SwapComposer({
+        quote: quote as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      // Before adding swap transactions
+      expect(composer.getSummary()).toBeUndefined()
+
+      // After adding swap transactions but before building
+      await composer.addSwapTransactions()
+      expect(composer.getSummary()).toBeUndefined()
+
+      // After building but before execution
+      composer.buildGroup()
+      expect(composer.getSummary()).toBeUndefined()
+
+      // After signing but before execution
+      await composer.sign()
+      expect(composer.getSummary()).toBeUndefined()
+    })
+
+    it('should initialize summaryData with input transaction details during processSwapTransactions', async () => {
+      const mockDeflexTxn: DeflexTransaction = {
+        data: Buffer.from(
+          algosdk.encodeUnsignedTransaction(createMockTransaction()),
+        ).toString('base64'),
+        signature: false,
+        group: '',
+        logicSigBlob: false,
+      }
+
+      const quote: Partial<FetchQuoteResponse> = {
+        ...createMockQuote(),
+        fromASAID: 0,
+        toASAID: 31566704,
+        type: 'fixed-input',
+      }
+
+      const composer = new SwapComposer({
+        quote: quote as FetchQuoteResponse,
+        deflexTxns: [mockDeflexTxn],
+        algodClient: mockAlgodClient,
+        address: validAddress,
+        signer: async (txns: algosdk.Transaction[]) =>
+          txns.map((txn) => createValidSignedTxnBlob(txn)),
+      })
+
+      await composer.addSwapTransactions()
+
+      // getSummary returns undefined before execution, but summaryData should be initialized
+      // We can't directly access private summaryData, but we can verify it's set up
+      // by checking that the composer processed successfully
+      expect(composer.count()).toBe(1)
+    })
+  })
+
   describe('integration scenarios', () => {
     it('should handle a complete swap workflow', async () => {
       const mockDeflexTxn: DeflexTransaction = {

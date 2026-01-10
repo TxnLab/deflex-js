@@ -331,6 +331,37 @@ export interface SwapTransaction {
 }
 
 /**
+ * Summary of a swap transaction group after execution
+ *
+ * Contains the exact input/output amounts and total transaction fees.
+ * Only available after calling execute() on a SwapComposer instance.
+ */
+export interface SwapSummary {
+  /** Input asset ID (0 for ALGO) */
+  inputAssetId: bigint
+  /** Output asset ID (0 for ALGO) */
+  outputAssetId: bigint
+  /** Exact input amount in base units, from the user-signed transaction */
+  inputAmount: bigint
+  /** Exact output amount received in base units, from the inner transaction */
+  outputAmount: bigint
+  /** Quote type */
+  type: QuoteType
+  /** Total ALGO transaction fees in microAlgos */
+  totalFees: bigint
+  /** Number of transactions in the group */
+  transactionCount: number
+  /** Transaction ID of the user-signed input transaction (payment/asset transfer) */
+  inputTxnId: string
+  /** Transaction ID of the app call containing the output transfer as an inner transaction */
+  outputTxnId: string
+  /** Address that sent the input asset (the user) */
+  inputSender: string
+  /** Address that sent the output asset to the user */
+  outputSender: string
+}
+
+/**
  * Method call to be executed as part of the swap
  */
 export interface MethodCall {
