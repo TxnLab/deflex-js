@@ -1,3 +1,10 @@
+# [1.7.0](https://github.com/TxnLab/deflex-js/compare/v1.6.0...v1.7.0) (2026-01-10)
+
+
+### Features
+
+* add getSummary() method for exact swap amounts and fees ([#38](https://github.com/TxnLab/deflex-js/issues/38)) ([b90cf49](https://github.com/TxnLab/deflex-js/commit/b90cf493ebcb613972acc6754757cefb015a45eb))
+
 # [1.6.0](https://github.com/TxnLab/deflex-js/compare/v1.5.0...v1.6.0) (2025-12-15)
 
 

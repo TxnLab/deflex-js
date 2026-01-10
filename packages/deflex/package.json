@@ -1,6 +1,6 @@
 {
   "name": "@txnlab/deflex",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "description": "TypeScript/JavaScript SDK for Deflex Order Router - smart order routing and DEX aggregation on Algorand",
   "keywords": [
     "algorand",
