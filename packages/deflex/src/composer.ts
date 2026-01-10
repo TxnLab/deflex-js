@@ -22,6 +22,7 @@ import type {
   DeflexQuote,
   MethodCall,
   QuoteType,
+  SwapSummary,
 } from './types'
 
 /**
@@ -114,6 +115,19 @@ export class SwapComposer {
   private readonly middleware: SwapMiddleware[]
   private readonly note?: Uint8Array
   private inputTransactionIndex?: number
+  private outputTransactionIndex?: number
+
+  /** Summary data built incrementally during swap composition */
+  private summaryData?: {
+    inputAssetId: bigint
+    outputAssetId: bigint
+    inputAmount: bigint
+    inputTxnId?: string
+    outputTxnId?: string
+    inputSender: string
+    outputSender?: string
+    outputAmount?: bigint
+  }
 
   /**
    * Create a new SwapComposer instance
@@ -287,8 +301,11 @@ export class SwapComposer {
     }
 
     // Process swap transactions and execute afterSwap hooks
-    const { txns: processedTxns, userSignedTxnRelativeIndex } =
-      await this.processSwapTransactions()
+    const {
+      txns: processedTxns,
+      inputTxnRelativeIndex,
+      outputTxnRelativeIndex,
+    } = await this.processSwapTransactions()
     const afterTxns = await this.executeMiddlewareHooks('afterSwap')
 
     // Check total length before adding swap and afterSwap transactions
@@ -303,8 +320,13 @@ export class SwapComposer {
 
     // Calculate the absolute index of the user-signed input transaction
     // This is: current ATC count (user txns + beforeSwap) + relative index within processed txns
-    if (userSignedTxnRelativeIndex !== undefined) {
-      this.inputTransactionIndex = this.atc.count() + userSignedTxnRelativeIndex
+    if (inputTxnRelativeIndex !== undefined) {
+      this.inputTransactionIndex = this.atc.count() + inputTxnRelativeIndex
+    }
+
+    // Calculate the absolute index of the output transaction (last app call in swap)
+    if (outputTxnRelativeIndex !== undefined) {
+      this.outputTransactionIndex = this.atc.count() + outputTxnRelativeIndex
     }
 
     // Add swap transactions
@@ -431,6 +453,19 @@ export class SwapComposer {
       waitRounds,
     )
 
+    // Store transaction IDs in summaryData
+    if (this.summaryData) {
+      if (this.inputTransactionIndex !== undefined) {
+        this.summaryData.inputTxnId = txIDs[this.inputTransactionIndex]
+      }
+      if (this.outputTransactionIndex !== undefined) {
+        this.summaryData.outputTxnId = txIDs[this.outputTransactionIndex]
+      }
+    }
+
+    // Extract actual output amount from confirmed transaction
+    await this.extractActualOutputAmount()
+
     return {
       ...result,
       txIds: txIDs,
@@ -478,6 +513,59 @@ export class SwapComposer {
   }
 
   /**
+   * Get a summary of the swap amounts and fees
+   *
+   * Returns the exact input and output amounts, total transaction fees,
+   * and transaction IDs. This is useful for displaying a complete summary
+   * after a swap has been executed.
+   *
+   * Only available after calling execute() - returns undefined before execution.
+   *
+   * @returns SwapSummary containing exact amounts and fees, or undefined if not yet executed
+   *
+   * @example
+   * ```typescript
+   * const swap = await deflex.newSwap({ quote, address, slippage, signer })
+   * const result = await swap.execute()
+   *
+   * const summary = swap.getSummary()
+   * if (summary) {
+   *   console.log('Sent:', summary.inputAmount, 'Received:', summary.outputAmount)
+   *   console.log('Total fees:', summary.totalFees, 'microAlgos')
+   * }
+   * ```
+   */
+  getSummary(): SwapSummary | undefined {
+    // Only return summary after execution when we have all the data
+    if (
+      !this.summaryData ||
+      this.summaryData.outputAmount === undefined ||
+      this.summaryData.inputTxnId === undefined ||
+      this.summaryData.outputTxnId === undefined ||
+      this.summaryData.outputSender === undefined
+    ) {
+      return undefined
+    }
+
+    const txns = this.atc.buildGroup()
+    const totalFees = txns.reduce((sum, tws) => sum + tws.txn.fee, 0n)
+
+    return {
+      inputAssetId: this.summaryData.inputAssetId,
+      outputAssetId: this.summaryData.outputAssetId,
+      inputAmount: this.summaryData.inputAmount,
+      outputAmount: this.summaryData.outputAmount,
+      type: this.quote.type as QuoteType,
+      totalFees,
+      transactionCount: txns.length,
+      inputTxnId: this.summaryData.inputTxnId,
+      outputTxnId: this.summaryData.outputTxnId,
+      inputSender: this.summaryData.inputSender,
+      outputSender: this.summaryData.outputSender,
+    }
+  }
+
+  /**
    * Validates an Algorand address
    */
   private validateAddress(address: string): string {
@@ -489,15 +577,19 @@ export class SwapComposer {
 
   /**
    * Processes app opt-ins and decodes swap transactions from API response
+   *
+   * Also initializes summaryData with input transaction details and output transaction ID
    */
   private async processSwapTransactions(): Promise<{
     txns: TransactionWithSigner[]
-    userSignedTxnRelativeIndex?: number
+    inputTxnRelativeIndex?: number
+    outputTxnRelativeIndex?: number
   }> {
     const appOptIns = await this.processRequiredAppOptIns()
 
     const swapTxns: TransactionWithSigner[] = []
-    let userSignedTxnRelativeIndex: number | undefined
+    let inputTxnRelativeIndex: number | undefined
+    let inputTxn: Transaction | undefined
 
     for (let i = 0; i < this.deflexTxns.length; i++) {
       const deflexTxn = this.deflexTxns[i]
@@ -515,13 +607,14 @@ export class SwapComposer {
             signer: this.createDeflexSigner(deflexTxn.signature),
           })
         } else {
-          // User transaction - use configured signer
+          // Input payment or asset transfer transaction - use configured signer
           // Set the note if provided (using type assertion since note is readonly but safe to modify before signing)
           if (this.note !== undefined) {
             ;(txn as { note: Uint8Array }).note = this.note
           }
           // Track the relative index within processed transactions (after app opt-ins)
-          userSignedTxnRelativeIndex = appOptIns.length + swapTxns.length
+          inputTxnRelativeIndex = appOptIns.length + swapTxns.length
+          inputTxn = txn
 
           swapTxns.push({
             txn,
@@ -535,9 +628,32 @@ export class SwapComposer {
       }
     }
 
+    // Initialize summary data with input transaction details
+    if (inputTxn) {
+      // Extract input amount from payment or asset transfer
+      const paymentAmount = inputTxn.payment?.amount
+      const assetTransferAmount = inputTxn.assetTransfer?.amount
+      const inputAmount = paymentAmount ?? assetTransferAmount ?? 0n
+
+      this.summaryData = {
+        inputAssetId: BigInt(this.quote.fromASAID),
+        outputAssetId: BigInt(this.quote.toASAID),
+        inputAmount,
+        inputSender: this.address,
+      }
+    }
+
+    // The last transaction in swapTxns is the app call that will contain
+    // the inner transaction sending the output asset to the user
+    // We'll get its ID after buildGroup() is called
+    // Store the relative index so we can get the ID later
+    const outputTxnRelativeIndex =
+      swapTxns.length > 0 ? appOptIns.length + swapTxns.length - 1 : undefined
+
     return {
       txns: [...appOptIns, ...swapTxns],
-      userSignedTxnRelativeIndex,
+      inputTxnRelativeIndex,
+      outputTxnRelativeIndex,
     }
   }
 
@@ -695,5 +811,60 @@ export class SwapComposer {
     }
 
     return allTxns
+  }
+
+  /**
+   * Extract the actual output amount from the confirmed output transaction's inner transactions
+   *
+   * Analyzes only the output transaction (last app call in the swap) to find the
+   * inner transaction that transfers the output asset to the user.
+   */
+  private async extractActualOutputAmount(): Promise<void> {
+    if (!this.summaryData?.outputTxnId) {
+      return
+    }
+
+    const outputAssetId = this.summaryData.outputAssetId
+    const userAddress = this.address
+
+    try {
+      const pendingInfo = await this.algodClient
+        .pendingTransactionInformation(this.summaryData.outputTxnId)
+        .do()
+
+      const innerTxns = pendingInfo.innerTxns
+      if (!innerTxns) return
+
+      for (const innerTxn of innerTxns) {
+        const txn = innerTxn.txn.txn
+        const payment = txn.payment
+        const assetTransfer = txn.assetTransfer
+
+        // Get receiver address based on transaction type
+        const receiver = payment?.receiver ?? assetTransfer?.receiver
+        if (!receiver) continue
+
+        // Check if this transfer is to the user
+        if (receiver.toString() !== userAddress) continue
+
+        // Get sender address for outputSender
+        const senderAddress = txn.sender.toString()
+
+        if (outputAssetId === 0n && payment?.amount != null) {
+          // ALGO output to user
+          this.summaryData.outputAmount = payment.amount
+          this.summaryData.outputSender = senderAddress
+        } else if (outputAssetId !== 0n && assetTransfer) {
+          // ASA output - verify it's the right asset
+          const assetId = assetTransfer.assetIndex
+          if (assetId === outputAssetId && assetTransfer.amount != null) {
+            this.summaryData.outputAmount = assetTransfer.amount
+            this.summaryData.outputSender = senderAddress
+          }
+        }
+      }
+    } catch {
+      // Silently fail - outputAmount will remain undefined
+    }
   }
 }
