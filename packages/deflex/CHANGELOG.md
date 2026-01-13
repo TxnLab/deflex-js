@@ -1,3 +1,10 @@
+# [1.8.0](https://github.com/TxnLab/deflex-js/compare/v1.7.0...v1.8.0) (2026-01-13)
+
+
+### Features
+
+* **client:** add debug mode with configurable log levels ([#41](https://github.com/TxnLab/deflex-js/issues/41)) ([420c41d](https://github.com/TxnLab/deflex-js/commit/420c41d2fa865b4ff0963e1af53c306531dfe9b8))
+
 # [1.7.0](https://github.com/TxnLab/deflex-js/compare/v1.6.0...v1.7.0) (2026-01-10)
 
 
