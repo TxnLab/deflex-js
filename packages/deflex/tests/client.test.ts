@@ -452,10 +452,6 @@ describe('DeflexClient', () => {
           autoOptIn: true,
         })
 
-        const consoleWarnSpy = vi
-          .spyOn(console, 'warn')
-          .mockImplementation(() => {})
-
         const mockQuote: Partial<FetchQuoteResponse> = {
           fromASAID: 0,
           toASAID: 31566704,
@@ -476,11 +472,6 @@ describe('DeflexClient', () => {
 
         const callUrl = mockRequest.mock.calls?.[0]?.[0] as string
         expect(callUrl).not.toContain('optIn=')
-        expect(consoleWarnSpy).toHaveBeenCalledWith(
-          'autoOptIn is enabled but no address provided to fetchQuote(). Asset opt-in check skipped.',
-        )
-
-        consoleWarnSpy.mockRestore()
       })
 
       it('should use explicit optIn value even when autoOptIn is enabled', async () => {

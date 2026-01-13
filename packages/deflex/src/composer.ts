@@ -14,6 +14,7 @@ import {
   type TransactionWithSigner,
 } from 'algosdk'
 import { DEFAULT_CONFIRMATION_ROUNDS } from './constants'
+import { Logger } from './logger'
 import type { SwapMiddleware, SwapContext, QuoteContext } from './middleware'
 import type {
   FetchQuoteResponse,
@@ -76,6 +77,8 @@ export interface SwapComposerConfig {
   readonly middleware?: SwapMiddleware[]
   /** Optional note field for the user-signed input transaction (payment or asset transfer) */
   readonly note?: Uint8Array
+  /** Debug logging level (propagated from DeflexClient) */
+  readonly debugLevel?: 'none' | 'info' | 'debug' | 'trace'
 }
 
 /**
@@ -144,6 +147,11 @@ export class SwapComposer {
    * @param config.middleware - Middleware to apply during swap composition
    */
   constructor(config: SwapComposerConfig) {
+    // Set logger level from config
+    if (config.debugLevel) {
+      Logger.setLevel(config.debugLevel)
+    }
+
     // Validate required parameters
     if (!config.quote) {
       throw new Error('Quote is required')
@@ -306,6 +314,7 @@ export class SwapComposer {
       inputTxnRelativeIndex,
       outputTxnRelativeIndex,
     } = await this.processSwapTransactions()
+
     const afterTxns = await this.executeMiddlewareHooks('afterSwap')
 
     // Check total length before adding swap and afterSwap transactions
@@ -340,6 +349,7 @@ export class SwapComposer {
     }
 
     this.swapTransactionsAdded = true
+
     return this
   }
 
@@ -417,7 +427,7 @@ export class SwapComposer {
       await this.addSwapTransactions()
     }
 
-    return this.atc.submit(this.algodClient)
+    return await this.atc.submit(this.algodClient)
   }
 
   /**
@@ -448,27 +458,46 @@ export class SwapComposer {
       await this.addSwapTransactions()
     }
 
-    const { txIDs, ...result } = await this.atc.execute(
-      this.algodClient,
-      waitRounds,
-    )
+    try {
+      const { txIDs, ...result } = await this.atc.execute(
+        this.algodClient,
+        waitRounds,
+      )
 
-    // Store transaction IDs in summaryData
-    if (this.summaryData) {
-      if (this.inputTransactionIndex !== undefined) {
-        this.summaryData.inputTxnId = txIDs[this.inputTransactionIndex]
+      // Store transaction IDs in summaryData
+      if (this.summaryData) {
+        if (this.inputTransactionIndex !== undefined) {
+          this.summaryData.inputTxnId = txIDs[this.inputTransactionIndex]
+        }
+        if (this.outputTransactionIndex !== undefined) {
+          this.summaryData.outputTxnId = txIDs[this.outputTransactionIndex]
+        }
       }
-      if (this.outputTransactionIndex !== undefined) {
-        this.summaryData.outputTxnId = txIDs[this.outputTransactionIndex]
+
+      // Extract actual output amount from confirmed transaction
+      await this.extractActualOutputAmount()
+
+      return {
+        ...result,
+        txIds: txIDs,
       }
-    }
+    } catch (error) {
+      // Log comprehensive failure context when swap execution fails
+      const { logSwapExecutionFailure } = await import('./debug')
+      logSwapExecutionFailure(
+        {
+          quote: this.quote,
+          address: this.address,
+          slippage: 0, // Not stored in composer, would need to be passed from client
+          transactionCount: this.count(),
+          middlewareCount: this.middleware.length,
+          groupSize: this.count(),
+        },
+        error,
+      )
 
-    // Extract actual output amount from confirmed transaction
-    await this.extractActualOutputAmount()
-
-    return {
-      ...result,
-      txIds: txIDs,
+      // Re-throw the error
+      throw error
     }
   }
 
@@ -807,6 +836,7 @@ export class SwapComposer {
       }
 
       const txns = await mw[hookName](swapContext)
+
       allTxns.push(...txns)
     }
 
