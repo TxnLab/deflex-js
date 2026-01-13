@@ -6,12 +6,14 @@ import {
   DEFAULT_ALGOD_URI,
   DEFAULT_API_BASE_URL,
   DEFAULT_AUTO_OPT_IN,
+  DEFAULT_DEBUG_LEVEL,
   DEFAULT_FEE_BPS,
   DEFAULT_MAX_DEPTH,
   DEFAULT_MAX_GROUP_SIZE,
   DEPRECATED_PROTOCOLS,
   MAX_FEE_BPS,
 } from './constants'
+import { Logger } from './logger'
 import { request } from './utils'
 import type { SwapMiddleware } from './middleware'
 import type {
@@ -70,9 +72,14 @@ export class DeflexClient {
    * @param config.referrerAddress - Referrer address for fee sharing (receives 25% of swap fees)
    * @param config.feeBps - Fee in basis points (default: 15 = 0.15%, max: 300 = 3.00%)
    * @param config.autoOptIn - Automatically detect and add required opt-in transactions (default: false)
+   * @param config.debugLevel - Debug logging level (default: 'none')
    * @param config.middleware - Array of middleware to apply to swaps (default: [])
    */
   constructor(config: DeflexConfigParams & { middleware?: SwapMiddleware[] }) {
+    // Set logger level FIRST (before any operations)
+    const debugLevel = config.debugLevel ?? DEFAULT_DEBUG_LEVEL
+    Logger.setLevel(debugLevel)
+
     // Validate and set config
     this.config = {
       apiKey: this.validateApiKey(config.apiKey),
@@ -85,6 +92,7 @@ export class DeflexClient {
         : undefined,
       feeBps: this.validateFeeBps(config.feeBps ?? DEFAULT_FEE_BPS),
       autoOptIn: config.autoOptIn ?? DEFAULT_AUTO_OPT_IN,
+      debugLevel,
     }
 
     // Create Algodv2 client
@@ -429,6 +437,7 @@ export class DeflexClient {
       signer,
       middleware: this.middleware,
       note,
+      debugLevel: this.config.debugLevel,
     })
 
     return composer

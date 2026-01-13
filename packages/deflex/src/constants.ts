@@ -44,5 +44,8 @@ export const DEFAULT_MAX_DEPTH = 4
 /** Default auto opt-in setting (automatic asset/app opt-in detection) */
 export const DEFAULT_AUTO_OPT_IN = false
 
+/** Default debug level (no debug logging) */
+export const DEFAULT_DEBUG_LEVEL = 'none' as const
+
 /** Default number of rounds to wait for transaction confirmation */
 export const DEFAULT_CONFIRMATION_ROUNDS = 10

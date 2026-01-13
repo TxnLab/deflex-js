@@ -38,6 +38,16 @@ export interface DeflexConfigParams {
 
   /** Automatically detect and add required opt-in transactions (default: false) */
   readonly autoOptIn?: boolean
+
+  /**
+   * Debug logging level (default: 'none')
+   *
+   * - 'none': No debug logging (default)
+   * - 'info': High-level operations (quote fetched, swap created, submitted)
+   * - 'debug': Detailed flow (middleware applied, validation, status transitions)
+   * - 'trace': Everything including request/response payloads, transaction details
+   */
+  readonly debugLevel?: 'none' | 'info' | 'debug' | 'trace'
 }
 
 /**
@@ -47,9 +57,10 @@ export interface DeflexConfigParams {
  */
 export type DeflexConfig = Omit<
   Required<DeflexConfigParams>,
-  'referrerAddress'
+  'referrerAddress' | 'debugLevel'
 > & {
   readonly referrerAddress: string | undefined
+  readonly debugLevel: 'none' | 'info' | 'debug' | 'trace'
 }
 
 /**
