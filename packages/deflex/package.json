@@ -1,7 +1,7 @@
 {
   "name": "@txnlab/deflex",
-  "version": "1.8.0",
-  "description": "TypeScript/JavaScript SDK for Deflex Order Router - smart order routing and DEX aggregation on Algorand",
+  "version": "1.9.0",
+  "description": "DEPRECATED: This package has been renamed to @txnlab/haystack-router. TypeScript/JavaScript SDK for Deflex Order Router - smart order routing and DEX aggregation on Algorand",
   "keywords": [
     "algorand",
     "deflex",

@@ -1,3 +1,18 @@
+# ⚠️ DEPRECATED - This package has been renamed
+
+**This package has been renamed to [@txnlab/haystack-router](https://www.npmjs.com/package/@txnlab/haystack-router) and will no longer receive updates.**
+
+Please migrate to the new package:
+
+```bash
+npm uninstall @txnlab/deflex
+npm install @txnlab/haystack-router
+```
+
+See the [migration guide](https://github.com/TxnLab/haystack-js/blob/main/MIGRATION.md) for details.
+
+---
+
 # Deflex SDK
 
 [![npm version](https://img.shields.io/npm/v/@txnlab/deflex.svg)](https://www.npmjs.com/package/@txnlab/deflex)
